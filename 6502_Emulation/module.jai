@@ -49,21 +49,21 @@ Instruction_Proc :: #type (machine: *Machine_6502, data: []u8);
 // Column specifies the high byte while row specifies the low byte.
 // https://www.masswerk.at/6502/6502_instruction_set.html
 INSTRUCTION_TABLE :: Instruction_Proc.[
-//  0x0,     0x1,  0x2,     0x3,  0x4,  0x5,  0x6,  0x7,  0x8,     0x9,     0xA,  0xB,  0xC,  0xD,  0xE,  0xF
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x0
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x1
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x2
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x3
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x4
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x5
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x6
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x7
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x8
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x9
-    ldy_imm, null, ldx_imm, null, null, null, null, null, null,    lda_imm, null, null, null, null, null, null, // 0xA
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0xB
-    cpy_imm, null, null,    null, null, null, null, null, cmp_imm, null,    null, null, null, null, null, null, // 0xC
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0xD
-    cpx_imm, null, null,    null, null, null, null, null, null,    null,    nop,  null, null, null, null, null, // 0xE
-    null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0xF
+//  0x0,     0x1,           0x2,     0x3,  0x4,  0x5,       0x6,  0x7,  0x8,     0x9,       0xA,  0xB,  0xC,  0xD,       0xE,  0xF
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x0
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x1
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x2
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x3
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x4
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x5
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x6
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0x7
+    null,    sta_x_idx_ind, null,    null, null, sta_zpg,   null, null, null,    null,      null, null, null, sta_abs,   null, null, // 0x8
+    null,    sta_ind_y_idx, null,    null, null, sta_zpg_x, null, null, null,    sta_abs_y, null, null, null, sta_abs_x, null, null, // 0x9
+    ldy_imm, null,          ldx_imm, null, null, null,      null, null, null,    lda_imm,   null, null, null, null,      null, null, // 0xA
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0xB
+    cpy_imm, null,          null,    null, null, null,      null, null, cmp_imm, null,      null, null, null, null,      null, null, // 0xC
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0xD
+    cpx_imm, null,          null,    null, null, null,      null, null, null,    null,      nop,  null, null, null,      null, null, // 0xE
+    null,    null,          null,    null, null, null,      null, null, null,    null,      null, null, null, null,      null, null, // 0xF
 ];
