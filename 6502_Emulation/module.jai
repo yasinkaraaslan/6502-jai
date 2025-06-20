@@ -23,7 +23,7 @@ Status_Flags :: enum_flags u8 #specified {
 init :: (using machine: *Machine_6502) {
     memory.data = alloc(MEMORY_SIZE_6502);
     memory.count = MEMORY_SIZE_6502;
-    flags = .UNUSED;
+    flags = .Unused;
 }
 deinit :: (using machine: *Machine_6502) {
     free(memory.data);
@@ -35,7 +35,7 @@ deinit :: (using machine: *Machine_6502) {
 // instruction.
 execute_instruction :: (machine: *Machine_6502, data: []u8) {
     instruction_proc := INSTRUCTION_TABLE[data[0]];
-    assert(instruction_proc != null, "Instruction is not available.");
+    assert(instruction_proc != null, "Instruction 0x% is not available.", FormatInt.{value=data[0], base=16, minimum_digits=2});
 
     instruction_proc(machine, data);
 }
@@ -49,7 +49,7 @@ Instruction_Proc :: #type (machine: *Machine_6502, data: []u8);
 // Column specifies the high byte while row specifies the low byte.
 // https://www.masswerk.at/6502/6502_instruction_set.html
 INSTRUCTION_TABLE :: Instruction_Proc.[
-//  0x0,  0x1,  0x2,  0x3,  0x4,  0x5,  0x6,  0x7,  0x8,  0x9,     0xA,  0xB,  0xC,  0xD,  0xE,  0xF
+//  0x0,     0x1,  0x2,     0x3,  0x4,  0x5,  0x6,  0x7,  0x8,     0x9,     0xA,  0xB,  0xC,  0xD,  0xE,  0xF
     null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x0
     null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x1
     null,    null, null,    null, null, null, null, null, null,    null,    null, null, null, null, null, null, // 0x2

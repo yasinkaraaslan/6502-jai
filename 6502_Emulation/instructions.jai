@@ -33,7 +33,7 @@ ldy_imm :: inline (machine: *Machine_6502, data: []u8) {
 
 // Compares
 compare_imm :: inline (register: u8, flags: *Status_Flags, data: []u8) {
-    reset_flags(*flags, .Zero | .Negative | .Carry);
+    reset_flags(flags, .Zero | .Negative | .Carry);
     if register >= data[1]  flags.* |= .Carry;
     if register == data[1]  flags.* |= .Zero;
     if register <  data[1]  flags.* |= .Negative;
