@@ -26,7 +26,7 @@ load :: inline (register: *u8, value: u8, flags: *Status_Flags) {
     reset_flags(flags, .Zero | .Negative);
 
     // We hardcode the flags for now, in the future we may want to use
-    // assembly to cast x86 flags to 6502. I guess that should be faster.
+    // assembly to cast x86 flags to 6502. I guess that would be faster.
     if value == 0       flags.* |= .Zero;
     else if value > 127 flags.* |= .Negative;
     register.* = value;
@@ -247,8 +247,8 @@ sty_abs :: inline (using machine: *Machine_6502, data: []u8) {
 transfer :: inline (from: *u8, to: *u8, flags: *Status_Flags) {
     reset_flags(flags, .Negative | .Zero);
     num := from.*;
-    if num == 0        flags |= .Zero;
-    else if num > 127  flags |= .Negative;
+    if num == 0        flags.* |= .Zero;
+    else if num > 127  flags.* |= .Negative;
     to.* = num;
 }
 
@@ -275,4 +275,57 @@ tsx :: inline (using machine: *Machine_6502, data: []u8) {
 txs :: inline (using machine: *Machine_6502, data: []u8) {
     // Doesn't have an effect on the flags.
     x = sp;
+}
+
+// -- Logical --
+and :: inline (register: *u8, value: u8, flags: *Status_Flags) {
+    reset_flags(flags, .Negative | .Zero);
+    if value == 0        flags.* |= .Zero;
+    else if value > 127  flags.* |= .Negative;
+    register.* &= value;
+}
+
+or :: inline (register: *u8, value: u8, flags: *Status_Flags) {
+    reset_flags(flags, .Negative | .Zero);
+    if value == 0        flags.* |= .Zero;
+    else if value > 127  flags.* |= .Negative;
+    register.* |= value;
+}
+
+and_imm :: inline (using machine: *Machine_6502, data: []u8) {
+    and(*a, data[1], *flags);
+}
+
+and_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    and(*a, memory[data[1]], *flags);
+}
+
+and_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
+    address := cast(u16)data[1] + cast(u16)x;
+    and(*a, memory[address], *flags);
+}
+
+and_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    and(*a, memory[address], *flags);
+}
+
+and_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    and(*a, memory[address + x], *flags);
+}
+
+and_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    and(*a, memory[address + y], *flags);
+}
+
+and_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
+    address := x_indexed_indirect(memory, x, data[1]);
+    and(*a, memory[address], *flags);
+}
+
+and_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
+    address := indirect_y_indexed(memory, y, data[1]);
+    and(*a, memory[address], *flags);
 }

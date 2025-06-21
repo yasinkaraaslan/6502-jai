@@ -52,8 +52,8 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
 //  0x0,     0x1,           0x2,     0x3,  0x4,       0x5,       0x6,       0x7,  0x8,       0x9,       0xA,  0xB,  0xC,     0xD,       0xE,     0xF
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x0
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x1
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x2
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x3
+    null,    and_x_idx_ind, null,    null, null,      and_zpg,   null,      null, null,      and_imm,   null, null, null,    and_abs,   null,      null, // 0x2
+    null,    and_ind_y_idx, null,    null, null,      and_zpg_x, null,      null, null,      and_abs_y, null, null, null,    and_abs_x, null,      null, // 0x3
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x4
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x5
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x6
