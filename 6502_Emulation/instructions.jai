@@ -46,13 +46,65 @@ compare :: inline (register: u8, value: u8, flags: *Status_Flags) {
 cmp_imm :: inline (machine: *Machine_6502, data: []u8) {
     compare(machine.a, data[1], *machine.flags);
 }
+cmp_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    compare(a, memory[data[1]], *flags);
+}
+
+cmp_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
+    address := cast(u16)data[1] + cast(u16)x;
+    compare(a, memory[address], *flags);
+}
+
+cmp_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    compare(a, memory[address], *flags);
+}
+
+cmp_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
+    base_address := little_endian(*data[1]);
+    compare(a, memory[base_address + x], *flags);
+}
+
+cmp_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
+    base_address := little_endian(*data[1]);
+    compare(a, memory[base_address + y], *flags);
+}
+
+cmp_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
+    base_address := cast(u16)data[1] + cast(u16)x;
+    address := little_endian(*memory[base_address]);
+    compare(a, memory[address], *flags);
+}
+
+cmp_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
+    base_address := little_endian(*memory[data[1]]);
+    compare(machine.a, memory[base_address + y], *flags);
+}
 
 cpx_imm :: inline (machine: *Machine_6502, data: []u8) {
     compare(machine.x, data[1], *machine.flags);
 }
 
+cpx_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    compare(x, memory[data[1]], *flags);
+}
+
+cpx_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    compare(x, memory[address], *flags);
+}
+
 cpy_imm :: inline (machine: *Machine_6502, data: []u8) {
     compare(machine.y, data[1], *machine.flags);
+}
+
+cpy_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    compare(y, memory[data[1]], *flags);
+}
+
+cpy_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    compare(y, memory[address], *flags);
 }
 
 // --- Stores ---
@@ -69,18 +121,23 @@ sta_abs :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 sta_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    index := little_endian(*data[1]);
-    memory[index + x] = a;
+    address := little_endian(*data[1]);
+    memory[address + x] = a;
 }
 
 sta_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    index := little_endian(*data[1]);
-    memory[index + y] = a;
+    address := little_endian(*data[1]);
+    memory[address + y] = a;
 }
 
 sta_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    load_index := cast(u16)data[1] + cast(u16)x;
-    store_index := little_endian(*memory[load_index]);
+    load_address := cast(u16)data[1] + cast(u16)x;
+    store_address := little_endian(*memory[load_address]);
+    memory[store_address] = a;
+}
+
+sta_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
+    store_index := little_endian(*memory[data[1]]) + y;
     memory[store_index] = a;
 }
 
@@ -107,9 +164,3 @@ sty_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
 sty_abs :: inline (using machine: *Machine_6502, data: []u8) {
     memory[little_endian(*data[1])] = y;
 }
-
-sta_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    store_index := little_endian(*memory[data[1]]) + y;
-    memory[store_index] = a;
-}
-
