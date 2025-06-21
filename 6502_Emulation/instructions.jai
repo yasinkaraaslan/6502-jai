@@ -19,6 +19,8 @@
 #insert #run generate_instructions("adc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "adc", "a");
 #insert #run generate_instructions("sbc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "sbc", "a");
 
+#insert #run generate_instructions("inc", .Zpg | .Zpg_X | .Abs | .Abs_X, "inc", "");
+
 #scope_file
 #import "String";
 Instruction_Variant_Flags :: enum_flags {
@@ -35,7 +37,7 @@ Instruction_Variant_Flags :: enum_flags {
 
 generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name : string) -> string {
     operand: string;
-    args: string;
+    args: string = ---;
     sb: String_Builder;
     generate :: (variant: Instruction_Variant_Flags) #expand {
         variant_name: string;
@@ -59,6 +61,8 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
 
     // We could've used just *register_name for everything and it would've been a lot simpler, but whatever.
     if proc_name == {
+    case "inc";
+        args = "";
     case "bit_test";
         #through;
     case "compare";
@@ -115,8 +119,8 @@ nop :: inline (machine: *Machine_6502, data: []u8) {
     // You may want to use x86 nop instruction if you want to be fancy.
 }
 
-reset_flags :: (to_reset: Status_Flags) #expand {
-    `flags &= ~(to_reset);
+reset_flags :: inline (flags: *Status_Flags, to_reset: Status_Flags) {
+    flags.* &= ~(to_reset);
 }
 
 little_endian :: inline (address: *u8) -> u16 {
@@ -133,7 +137,7 @@ indirect_y_indexed :: () -> u16 #expand {
 }
 
 load :: (register: *u8) #expand {
-    reset_flags(.Zero | .Negative);
+    reset_flags(*`flags, .Zero | .Negative);
 
     // We hardcode the flags for now, in the future we may want to use
     // assembly to cast x86 flags to 6502. I guess that would be faster.
@@ -143,7 +147,7 @@ load :: (register: *u8) #expand {
 }
 
 compare :: (register: u8) #expand {
-    reset_flags(.Zero | .Negative | .Carry);
+    reset_flags(*`flags, .Zero | .Negative | .Carry);
     if register >= `operand.*  `flags |= .Carry;
     if register == `operand.*  `flags |= .Zero;
     if register <  `operand.*  `flags |= .Negative;
@@ -155,7 +159,7 @@ store :: (value: u8) #expand {
 
 // --- Transfers ---
 transfer :: (from: *u8, to: *u8) #expand {
-    reset_flags(.Negative | .Zero);
+    reset_flags(*`flags, .Negative | .Zero);
     num := from.*;
     if num == 0        `flags |= .Zero;
     else if num > 127  `flags |= .Negative;
@@ -189,28 +193,28 @@ txs :: inline (using machine: *Machine_6502, data: []u8) {
 
 // -- Logical --
 and :: (register: *u8) #expand {
-    reset_flags(.Negative | .Zero);
+    reset_flags(*`flags, .Negative | .Zero);
     if `operand.* == 0        `flags |= .Zero;
     else if `operand.* > 127  `flags |= .Negative;
     register.* &= `operand.*;
 }
 
 or :: (register: *u8) #expand {
-    reset_flags(.Negative | .Zero);
+    reset_flags(*`flags, .Negative | .Zero);
     if `operand.* == 0        `flags |= .Zero;
     else if `operand.* > 127  `flags |= .Negative;
     register.* |= `operand.*;
 }
 
 xor :: (register: *u8) #expand {
-    reset_flags(.Negative | .Zero);
+    reset_flags(*`flags, .Negative | .Zero);
     if `operand.* == 0        `flags |= .Zero;
     else if `operand.* > 127  `flags |= .Negative;
     register.* ^= `operand.*;
 }
 
 bit_test :: (register: u8) #expand {
-    reset_flags(.Negative | .Zero | .Overflow);
+    reset_flags(*`flags, .Negative | .Zero | .Overflow);
     BIT_6 :: 0b0100_0000;
     result := register & `operand.*;
     if result == 0                 `flags |= .Zero;
@@ -218,34 +222,36 @@ bit_test :: (register: u8) #expand {
     if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
 }
 
-adc :: (register: *u8) #expand {
-    num := `operand.*;
-    carry : u8 = ifx `flags & .Carry == .Carry then cast(u8)1 else cast(u8)0;
+do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
+    carry := ifx flags.* & .Carry == .Carry then cast(u8)1 else cast(u8)0;
     result := register.* + num + carry;
 
-    reset_flags(.Negative | .Overflow | .Zero | .Carry);
+    reset_flags(flags, .Negative | .Overflow | .Zero | .Carry);
 
 
-    if result > 127         `flags |= .Negative;
-    if result == 0          `flags |= .Zero;
-    if result < register.*  `flags |= .Carry;
+    if result > 127         flags.* |= .Negative;
+    if result == 0          flags.* |= .Zero;
+    if result < register.*  flags.* |= .Carry;
     
     // Ugh...
     BIT_7 :: 0b1000_0000;
-    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) `flags |= .Overflow;
+    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) flags.* |= .Overflow;
 
     register.* = result;
 }
 
+adc :: (register: *u8) #expand {
+    do_carry_add(register, `operand.*, *`flags);
+}
+
 sbc :: (register: *u8) #expand {
-    new_operand := ~`operand.*; // We invert the bits so we can pass it to adc
-    operand := *new_operand; // Weird shadowing to make it work.
-    adc(register);
+    new_operand := ~`operand.*; // We invert the bits so we can pass it as carry add
+    do_carry_add(register, new_operand, *`flags);
 }
 
 // --- Set/Clear Flags ---
 clc :: inline (using machine: *Machine_6502, data: []u8) {
-    reset_flags(.Carry);
+    reset_flags(*flags, .Carry);
 }
 
 sec :: inline (using machine: *Machine_6502, data: []u8) {
@@ -253,12 +259,35 @@ sec :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 clv :: inline (using machine: *Machine_6502, data: []u8) {
-    reset_flags(.Overflow);
+    reset_flags(*flags, .Overflow);
 }
 
 cld :: inline (using machine: *Machine_6502, data: []u8) {
-    reset_flags(.Decimal);
+    reset_flags(*flags, .Decimal);
 }
 sed :: inline (using machine: *Machine_6502, data: []u8) {
     flags |= .Decimal;
+}
+
+inc :: () #expand {
+    reset_flags(*`flags, .Negative | .Zero);
+    result := `operand.* +=1;
+    if result == 0        flags |= .Zero;
+    else if result > 127  flags |= .Negative;
+
+    `operand.* = result;
+}
+
+inx :: inline (using machine: *Machine_6502, data: []u8) {
+    reset_flags(*`flags, .Negative | .Zero);
+    x += 1;
+    if x == 0        flags |= .Zero;
+    else if x > 127  flags |= .Negative;
+}
+
+iny :: inline (using machine: *Machine_6502, data: []u8) {
+    reset_flags(*`flags, .Negative | .Zero);
+    y += 1;
+    if y == 0        flags |= .Zero;
+    else if y > 127  flags |= .Negative;
 }
