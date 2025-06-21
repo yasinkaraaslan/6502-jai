@@ -1,3 +1,4 @@
+// We generate everything except for the implied ones.
 #insert #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "load", "a");
 #insert #run generate_instructions("ldx", .Imm | .Zpg | .Zpg_Y | .Abs | .Abs_X | .Abs_Y, "load", "x");
 #insert #run generate_instructions("ldy", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y, "load", "y");
@@ -6,17 +7,17 @@
 #insert #run generate_instructions("cpx", .Imm | .Zpg | .Abs, "compare", "x");
 #insert #run generate_instructions("cpy", .Imm | .Zpg | .Abs, "compare", "y");
 
+#insert #run generate_instructions("sta", .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "store", "a");
+#insert #run generate_instructions("stx", .Zpg | .Zpg_Y | .Abs, "store", "x");
+#insert #run generate_instructions("sty", .Zpg | .Zpg_X | .Abs, "store", "y");
+
+#insert #run generate_instructions("and", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "and", "a");
+#insert #run generate_instructions("ora", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "or", "a");
+#insert #run generate_instructions("eor", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "xor", "a");
+#insert #run generate_instructions("bit", .Zpg | .Abs, "bit_test", "a");
+
 #scope_file
 #import "String";
-Instruction_Type :: enum {
-    Load;
-    Store;
-    Logical;
-    Logical_No_Change; // Compare, bit_test
-}
-
-
-// We generate everything except for the implied ones.
 Instruction_Variant_Flags :: enum_flags {
     Imm;
     Zpg;
@@ -148,62 +149,8 @@ compare :: inline (register: u8) #expand {
     if register <  `operand.*  `flags |= .Negative;
 }
 
-// --- Stores ---
-store :: inline (save_to: *u8, value: u8, flags: *Status_Flags) {
-    // Store instructions do not change the flags
-}
-sta_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[data[1]] = a;
-}
-
-sta_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[data[1] + x] = a;
-}
-
-sta_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[little_endian(*data[1])] = a;
-}
-
-sta_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    memory[address + x] = a;
-}
-
-sta_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    memory[address + y] = a;
-}
-
-sta_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[x_indexed_indirect()] = a;
-}
-
-sta_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[indirect_y_indexed()] = a;
-}
-
-stx_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[data[1]] = x;
-}
-
-stx_zpg_y :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[data[1] + y] = x;
-}
-
-stx_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[little_endian(*data[1])] = x;
-}
-
-sty_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[data[1]] = y;
-}
-
-sty_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[data[1] + x] = y;
-}
-
-sty_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    memory[little_endian(*data[1])] = y;
+store :: inline (value: u8) #expand {
+    `operand.* = value;
 }
 
 // --- Transfers ---
@@ -241,148 +188,32 @@ txs :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 // -- Logical --
-and :: inline (register: *u8, value: u8, flags: *Status_Flags) {
-    reset_flags(flags, .Negative | .Zero);
-    if value == 0        flags.* |= .Zero;
-    else if value > 127  flags.* |= .Negative;
-    register.* &= value;
+and :: inline (register: *u8) #expand {
+    reset_flags(*`flags, .Negative | .Zero);
+    if `operand.* == 0        `flags |= .Zero;
+    else if `operand.* > 127  `flags |= .Negative;
+    register.* &= `operand.*;
 }
 
-or :: inline (register: *u8, value: u8, flags: *Status_Flags) {
-    reset_flags(flags, .Negative | .Zero);
-    if value == 0        flags.* |= .Zero;
-    else if value > 127  flags.* |= .Negative;
-    register.* |= value;
+or :: inline (register: *u8) #expand {
+    reset_flags(*`flags, .Negative | .Zero);
+    if `operand.* == 0        `flags |= .Zero;
+    else if `operand.* > 127  `flags |= .Negative;
+    register.* |= `operand.*;
 }
 
-xor :: inline (register: *u8, value: u8, flags: *Status_Flags) {
-    reset_flags(flags, .Negative | .Zero);
-    if value == 0        flags.* |= .Zero;
-    else if value > 127  flags.* |= .Negative;
-    register.* ^= value;
+xor :: inline (register: *u8) #expand {
+    reset_flags(*`flags, .Negative | .Zero);
+    if `operand.* == 0        `flags |= .Zero;
+    else if `operand.* > 127  `flags |= .Negative;
+    register.* ^= `operand.*;
 }
-bit_test :: inline (register: u8, value: u8, flags: *Status_Flags) {
-    reset_flags(flags, .Negative | .Zero | .Overflow);
+
+bit_test :: inline (register: u8) #expand {
+    reset_flags(*`flags, .Negative | .Zero | .Overflow);
     BIT_6 :: 0b0100_0000;
-
-    if value == 0             flags.* |= .Zero;
-    else if value > 127       flags.* |= .Negative;
-    if value & BIT_6 == BIT_6 flags.* |= .Overflow;
-}
-
-and_imm :: inline (using machine: *Machine_6502, data: []u8) {
-    and(*a, data[1], *flags);
-}
-
-and_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    and(*a, memory[data[1]], *flags);
-}
-
-and_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := cast(u16)data[1] + cast(u16)x;
-    and(*a, memory[address], *flags);
-}
-
-and_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    and(*a, memory[address], *flags);
-}
-
-and_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    and(*a, memory[address + x], *flags);
-}
-
-and_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    and(*a, memory[address + y], *flags);
-}
-
-and_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    and(*a, memory[x_indexed_indirect()], *flags);
-}
-
-and_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    and(*a, memory[indirect_y_indexed()], *flags);
-}
-
-ora_imm :: inline (using machine: *Machine_6502, data: []u8) {
-    or(*a, data[1], *flags);
-}
-
-ora_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    or(*a, memory[data[1]], *flags);
-}
-
-ora_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := cast(u16)data[1] + cast(u16)x;
-    or(*a, memory[address], *flags);
-}
-
-ora_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    or(*a, memory[address], *flags);
-}
-
-ora_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    or(*a, memory[address + x], *flags);
-}
-
-ora_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    or(*a, memory[address + y], *flags);
-}
-
-ora_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    or(*a, memory[x_indexed_indirect()], *flags);
-}
-
-ora_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    or(*a, memory[indirect_y_indexed()], *flags);
-}
-
-eor_imm :: inline (using machine: *Machine_6502, data: []u8) {
-    xor(*a, data[1], *flags);
-}
-
-eor_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    xor(*a, memory[data[1]], *flags);
-}
-
-eor_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := cast(u16)data[1] + cast(u16)x;
-    xor(*a, memory[address], *flags);
-}
-
-eor_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    xor(*a, memory[address], *flags);
-}
-
-eor_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    xor(*a, memory[address + x], *flags);
-}
-
-eor_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    xor(*a, memory[address + y], *flags);
-}
-
-eor_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    xor(*a, memory[x_indexed_indirect()], *flags);
-}
-
-eor_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    xor(*a, memory[indirect_y_indexed()], *flags);
-}
-
-bit_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    bit_test(a, memory[data[1]], *flags);
-}
-
-bit_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    bit_test(a, memory[address], *flags);
+    result := register & `operand.*;
+    if result == 0                 `flags |= .Zero;
+    if `operand.* > 127            `flags |= .Negative;
+    if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
 }
