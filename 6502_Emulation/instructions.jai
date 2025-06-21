@@ -20,6 +20,7 @@
 #insert #run generate_instructions("sbc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "sbc", "a");
 
 #insert #run generate_instructions("inc", .Zpg | .Zpg_X | .Abs | .Abs_X, "inc", "");
+#insert #run generate_instructions("dec", .Zpg | .Zpg_X | .Abs | .Abs_X, "dec", "");
 
 #scope_file
 #import "String";
@@ -61,6 +62,8 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
 
     // We could've used just *register_name for everything and it would've been a lot simpler, but whatever.
     if proc_name == {
+    case "dec";
+        #through;
     case "inc";
         args = "";
     case "bit_test";
@@ -233,6 +236,7 @@ do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
     if result == 0          flags.* |= .Zero;
     if result < register.*  flags.* |= .Carry;
     
+
     // Ugh...
     BIT_7 :: 0b1000_0000;
     if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) flags.* |= .Overflow;
@@ -269,11 +273,12 @@ sed :: inline (using machine: *Machine_6502, data: []u8) {
     flags |= .Decimal;
 }
 
+// -- Inc/Dec ---
 inc :: () #expand {
     reset_flags(*`flags, .Negative | .Zero);
-    result := `operand.* +=1;
-    if result == 0        flags |= .Zero;
-    else if result > 127  flags |= .Negative;
+    result := `operand.* + 1;
+    if result == 0        `flags |= .Zero;
+    else if result > 127  `flags |= .Negative;
 
     `operand.* = result;
 }
@@ -281,13 +286,22 @@ inc :: () #expand {
 inx :: inline (using machine: *Machine_6502, data: []u8) {
     reset_flags(*`flags, .Negative | .Zero);
     x += 1;
-    if x == 0        flags |= .Zero;
-    else if x > 127  flags |= .Negative;
+    if x == 0        `flags |= .Zero;
+    else if x > 127  `flags |= .Negative;
 }
 
 iny :: inline (using machine: *Machine_6502, data: []u8) {
     reset_flags(*`flags, .Negative | .Zero);
     y += 1;
-    if y == 0        flags |= .Zero;
-    else if y > 127  flags |= .Negative;
+    if y == 0        `flags |= .Zero;
+    else if y > 127  `flags |= .Negative;
+}
+
+dec :: () #expand {
+    reset_flags(*`flags, .Negative | .Zero);
+    result := `operand.* - 1;
+    if result == 0        `flags |= .Zero;
+    else if result > 127  `flags |= .Negative;
+
+    `operand.* = result;
 }
