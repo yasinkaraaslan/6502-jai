@@ -50,8 +50,8 @@ Instruction_Proc :: #type (machine: *Machine_6502, data: []u8);
 // https://www.masswerk.at/6502/6502_instruction_set.html
 INSTRUCTION_TABLE :: Instruction_Proc.[
 //  0x0,     0x1,           0x2,     0x3,  0x4,       0x5,       0x6,       0x7,  0x8,       0x9,       0xA,  0xB,  0xC,     0xD,       0xE,     0xF
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x0
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x1
+    null,    ora_x_idx_ind, null,    null, null,      ora_zpg,   null,      null, null,      ora_imm,   null, null, null,    ora_abs,   null,      null, // 0x0
+    null,    ora_ind_y_idx, null,    null, null,      ora_zpg_x, null,      null, null,      ora_abs_y, null, null, null,    ora_abs_x, null,      null, // 0x1
     null,    and_x_idx_ind, null,    null, null,      and_zpg,   null,      null, null,      and_imm,   null, null, null,    and_abs,   null,      null, // 0x2
     null,    and_ind_y_idx, null,    null, null,      and_zpg_x, null,      null, null,      and_abs_y, null, null, null,    and_abs_x, null,      null, // 0x3
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x4

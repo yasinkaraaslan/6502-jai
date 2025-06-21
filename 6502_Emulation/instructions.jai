@@ -292,6 +292,13 @@ or :: inline (register: *u8, value: u8, flags: *Status_Flags) {
     register.* |= value;
 }
 
+eor :: inline (register: *u8, value: u8, flags: *Status_Flags) {
+    reset_flags(flags, .Negative | .Zero);
+    if value == 0        flags.* |= .Zero;
+    else if value > 127  flags.* |= .Negative;
+    register.* ^= value;
+}
+
 and_imm :: inline (using machine: *Machine_6502, data: []u8) {
     and(*a, data[1], *flags);
 }
@@ -328,4 +335,42 @@ and_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
 and_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
     address := indirect_y_indexed(memory, y, data[1]);
     and(*a, memory[address], *flags);
+}
+
+ora_imm :: inline (using machine: *Machine_6502, data: []u8) {
+    or(*a, data[1], *flags);
+}
+
+ora_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    or(*a, memory[data[1]], *flags);
+}
+
+ora_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
+    address := cast(u16)data[1] + cast(u16)x;
+    or(*a, memory[address], *flags);
+}
+
+ora_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    or(*a, memory[address], *flags);
+}
+
+ora_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    or(*a, memory[address + x], *flags);
+}
+
+ora_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    or(*a, memory[address + y], *flags);
+}
+
+ora_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
+    address := x_indexed_indirect(memory, x, data[1]);
+    or(*a, memory[address], *flags);
+}
+
+ora_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
+    address := indirect_y_indexed(memory, y, data[1]);
+    or(*a, memory[address], *flags);
 }
