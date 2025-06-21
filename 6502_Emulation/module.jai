@@ -54,8 +54,8 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     null,    ora_ind_y_idx, null,    null, null,      ora_zpg_x, null,      null, null,      ora_abs_y, null, null, null,    ora_abs_x, null,      null, // 0x1
     null,    and_x_idx_ind, null,    null, bit_zpg,   and_zpg,   null,      null, null,      and_imm,   null, null, bit_abs, and_abs,   null,      null, // 0x2
     null,    and_ind_y_idx, null,    null, null,      and_zpg_x, null,      null, null,      and_abs_y, null, null, null,    and_abs_x, null,      null, // 0x3
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x4
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x5
+    null,    eor_x_idx_ind, null,    null, null,      eor_zpg,   null,      null, null,      eor_imm,   null, null, null,    eor_abs,   null,      null, // 0x4
+    null,    eor_ind_y_idx, null,    null, null,      eor_zpg_x, null,      null, null,      eor_abs_y, null, null, null,    eor_abs_x, null,      null, // 0x5
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x6
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x7
     null,    sta_x_idx_ind, null,    null, sty_zpg,   sta_zpg,   stx_zpg,   null, null,      null,      txa,  null, sty_abs, sta_abs,   stx_abs,   null, // 0x8
