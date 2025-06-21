@@ -1,6 +1,114 @@
 // TODO(yasin): Use a metaprogram to generate these.
 // Example: #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Idx_Y_Ind);
+#insert #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "load", "a");
+#insert #run generate_instructions("ldx", .Imm | .Zpg | .Zpg_Y | .Abs | .Abs_X | .Abs_Y, "load", "x");
+#insert #run generate_instructions("ldy", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y, "load", "y");
 
+#scope_file
+#import "String";
+Instruction_Type :: enum {
+    Load;
+    Store;
+    Logical;
+    Logical_No_Change; // Compare, bit_test
+}
+
+
+// We generate everything except for the implied ones.
+Instruction_Variant_Flags :: enum_flags {
+    Imm;
+    Zpg;
+    Zpg_X;
+    Zpg_Y;
+    Abs;
+    Abs_X;
+    Abs_Y;
+    X_Idx_Ind;
+    Ind_Y_Idx;
+}
+
+generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name : string, change_flags := true) -> string {
+    operand: string;
+    args: string;
+    sb: String_Builder;
+    generate :: (variant: Instruction_Variant_Flags) #expand {
+        variant_name: string;
+        info_enum := cast(*Type_Info_Enum)type_info(Instruction_Variant_Flags);
+        for info_enum.values {
+            if variant != xx it continue;
+            variant_name = to_lower_copy(info_enum.names[it_index]);
+        }
+        append(*sb, join(instruction_initials, "_", variant_name));
+        append(*sb, " :: (using machine: *Machine_6502, data: []u8) {\n");
+        append(*sb, tprint("    operand := %;\n", operand));
+        append(*sb, join("    ", proc_name, "("));
+    
+        append(*sb, args);
+        if change_flags  append(*sb, ", *flags");
+        
+        append(*sb, ");\n");
+        append(*sb, "}\n");
+    }
+
+    if proc_name == {
+    case "bit_test";
+        #through;
+    case "compare";
+        args = join(register_name, ", operand");
+    case "store";
+        args = join(register_name, ", *operand");
+    case "xor";
+        #through;
+    case "and";
+        #through;
+    case "or";
+        #through;
+    case "load";
+        args = join("*", register_name, ", operand");
+    }
+    
+    if variants & .Imm {
+        operand = "data[1]";
+        generate(.Imm);
+    }
+    if variants & .Zpg {
+        operand = "memory[data[1]]";
+        generate(.Zpg);
+    }
+    if variants & .Zpg_X {
+        operand = "memory[cast(u16)data[1] + cast(u16)x]";
+        generate(.Zpg_X);
+    }
+    if variants & .Zpg_Y {
+        operand = "memory[cast(u16)data[1] + cast(u16)y]";
+        generate(.Zpg_Y);
+    }
+    if variants & .Abs {
+        operand = "memory[little_endian(*data[1])]";
+        generate(.Abs);
+    }
+    if variants & .Abs_X {
+        operand = "memory[little_endian(*data[1]) + x]";
+        generate(.Abs_X);
+    }
+    if variants & .Abs_Y {
+        operand = "memory[little_endian(*data[1]) + y]";
+        generate(.Abs_Y);
+    }
+
+    if variants & .X_Idx_Ind {
+        operand = "memory[x_indexed_indirect()]";
+        generate(.X_Idx_Ind);
+    }
+
+    if variants & .Ind_Y_Idx {
+        operand = "memory[indirect_y_indexed()]";
+        generate(.Ind_Y_Idx);
+    }
+    return builder_to_string(*sb);
+}
+
+#scope_module
 nop :: inline (machine: *Machine_6502, data: []u8) {
     // You may want to use x86 nop instruction if you want to be fancy.
 }
@@ -13,16 +121,15 @@ little_endian :: inline (address: *u8) -> u16 {
     return (cast(*u16)address).*;
 }
 
-x_indexed_indirect :: inline (memory: []u8, x: u8, value: u8) -> u16 {
-    base_address := cast(u16)value + cast(u16)x;
-    return little_endian(*memory[base_address]);
+x_indexed_indirect :: () -> u16 #expand {
+    base_address := cast(u16)`data[1] + cast(u16)`x;
+    return little_endian(*`memory[base_address]);
 }
 
-indirect_y_indexed :: inline (memory: []u8, y: u8, value: u8) -> u16 {
-    return little_endian(*memory[value]) + y;
+indirect_y_indexed :: () -> u16 #expand {
+    return little_endian(*`memory[`data[1]]) + `y;
 }
 
-// --- Loads ---
 load :: inline (register: *u8, value: u8, flags: *Status_Flags) {
     reset_flags(flags, .Zero | .Negative);
 
@@ -33,95 +140,19 @@ load :: inline (register: *u8, value: u8, flags: *Status_Flags) {
     register.* = value;
 }
 
-lda_imm :: inline (machine: *Machine_6502, data: []u8) {
-    load(*machine.a, data[1], *machine.flags);
-}
-
-lda_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    load(*a, memory[data[1]], *machine.flags);
-}
-
-lda_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := cast(u16)data[1] + cast(u16)x;
-    load(*a, memory[address], *machine.flags);
-}
-
-lda_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*a, memory[address], *machine.flags);
-}
-
-lda_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*a, memory[address + x], *machine.flags);
-}
-
-lda_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*a, memory[address + y], *machine.flags);
-}
-
-lda_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    address := x_indexed_indirect(memory, x, data[1]);
-    load(*a, memory[address], *machine.flags);
-}
-
-lda_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := indirect_y_indexed(memory, y, data[1]);
-    load(*a, memory[address], *machine.flags);
-}
-
-ldx_imm :: inline (machine: *Machine_6502, data: []u8) {
-    load(*machine.x, data[1], *machine.flags);
-}
-
-ldx_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    load(*x, memory[data[1]], *machine.flags);
-}
-
-ldx_zpg_y :: inline (using machine: *Machine_6502, data: []u8) {
-    load(*x, memory[data[1] + y], *machine.flags);
-}
-
-ldx_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*x, memory[address], *machine.flags);
-}
-
-ldx_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*x, memory[address + y], *machine.flags);
-}
-
-ldy_imm :: inline (machine: *Machine_6502, data: []u8) {
-    load(*machine.y, data[1], *machine.flags);
-}
-
-ldy_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    load(*y, memory[data[1]], *machine.flags);
-}
-
-ldy_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    load(*y, memory[data[1] + x], *machine.flags);
-}
-
-ldy_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*y, memory[address], *machine.flags);
-}
-
-ldy_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    load(*y, memory[address + x], *machine.flags);
-}
-
 
 // --- Compares ---
-compare :: inline (register: u8, value: u8, flags: *Status_Flags) {
+compare :: inline (register: u8, value: u8, flags: *Status_Flags) #expand {
     reset_flags(flags, .Zero | .Negative | .Carry);
     if register >= value  flags.* |= .Carry;
     if register == value  flags.* |= .Zero;
     if register <  value  flags.* |= .Negative;
+}
+compare_variant :: inline (register: u8) #expand {
+    reset_flags(`flags, .Zero | .Negative | .Carry);
+    if register >= `operand  `flags.* |= .Carry;
+    if register == `operand  `flags.* |= .Zero;
+    if register <  `operand  `flags.* |= .Negative;
 }
 
 cmp_imm :: inline (machine: *Machine_6502, data: []u8) {
@@ -152,13 +183,11 @@ cmp_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 cmp_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    address := x_indexed_indirect(memory, x, data[1]);
-    compare(a, memory[address], *flags);
+    compare(a, memory[x_indexed_indirect()], *flags);
 }
 
 cmp_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := indirect_y_indexed(memory, y, data[1]);
-    compare(machine.a, memory[address], *flags);
+    compare(machine.a, memory[indirect_y_indexed()], *flags);
 }
 
 cpx_imm :: inline (machine: *Machine_6502, data: []u8) {
@@ -188,6 +217,9 @@ cpy_abs :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 // --- Stores ---
+store :: inline (save_to: *u8, value: u8, flags: *Status_Flags) {
+    // Store instructions do not change the flags
+}
 sta_zpg :: inline (using machine: *Machine_6502, data: []u8) {
     memory[data[1]] = a;
 }
@@ -211,13 +243,11 @@ sta_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 sta_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    address := x_indexed_indirect(memory, x, data[1]);
-    memory[address] = a;
+    memory[x_indexed_indirect()] = a;
 }
 
 sta_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := indirect_y_indexed(memory, y, data[1]);
-    memory[address] = a;
+    memory[indirect_y_indexed()] = a;
 }
 
 stx_zpg :: inline (using machine: *Machine_6502, data: []u8) {
@@ -337,13 +367,11 @@ and_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 and_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    address := x_indexed_indirect(memory, x, data[1]);
-    and(*a, memory[address], *flags);
+    and(*a, memory[x_indexed_indirect()], *flags);
 }
 
 and_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := indirect_y_indexed(memory, y, data[1]);
-    and(*a, memory[address], *flags);
+    and(*a, memory[indirect_y_indexed()], *flags);
 }
 
 ora_imm :: inline (using machine: *Machine_6502, data: []u8) {
@@ -375,13 +403,11 @@ ora_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 ora_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    address := x_indexed_indirect(memory, x, data[1]);
-    or(*a, memory[address], *flags);
+    or(*a, memory[x_indexed_indirect()], *flags);
 }
 
 ora_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := indirect_y_indexed(memory, y, data[1]);
-    or(*a, memory[address], *flags);
+    or(*a, memory[indirect_y_indexed()], *flags);
 }
 
 eor_imm :: inline (using machine: *Machine_6502, data: []u8) {
@@ -413,13 +439,11 @@ eor_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 eor_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    address := x_indexed_indirect(memory, x, data[1]);
-    xor(*a, memory[address], *flags);
+    xor(*a, memory[x_indexed_indirect()], *flags);
 }
 
 eor_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := indirect_y_indexed(memory, y, data[1]);
-    xor(*a, memory[address], *flags);
+    xor(*a, memory[indirect_y_indexed()], *flags);
 }
 
 bit_zpg :: inline (using machine: *Machine_6502, data: []u8) {
