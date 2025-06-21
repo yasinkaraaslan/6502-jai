@@ -1,8 +1,10 @@
-// TODO(yasin): Use a metaprogram to generate these.
-// Example: #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Idx_Y_Ind);
 #insert #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "load", "a");
 #insert #run generate_instructions("ldx", .Imm | .Zpg | .Zpg_Y | .Abs | .Abs_X | .Abs_Y, "load", "x");
 #insert #run generate_instructions("ldy", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y, "load", "y");
+
+#insert #run generate_instructions("cmp", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "compare", "a");
+#insert #run generate_instructions("cpx", .Imm | .Zpg | .Abs, "compare", "x");
+#insert #run generate_instructions("cpy", .Imm | .Zpg | .Abs, "compare", "y");
 
 #scope_file
 #import "String";
@@ -27,7 +29,7 @@ Instruction_Variant_Flags :: enum_flags {
     Ind_Y_Idx;
 }
 
-generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name : string, change_flags := true) -> string {
+generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name : string) -> string {
     operand: string;
     args: string;
     sb: String_Builder;
@@ -40,11 +42,10 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         }
         append(*sb, join(instruction_initials, "_", variant_name));
         append(*sb, " :: (using machine: *Machine_6502, data: []u8) {\n");
-        append(*sb, tprint("    operand := %;\n", operand));
+        append(*sb, tprint("    operand := *%;\n", operand));
         append(*sb, join("    ", proc_name, "("));
     
         append(*sb, args);
-        if change_flags  append(*sb, ", *flags");
         
         append(*sb, ");\n");
         append(*sb, "}\n");
@@ -54,9 +55,9 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     case "bit_test";
         #through;
     case "compare";
-        args = join(register_name, ", operand");
+        #through;
     case "store";
-        args = join(register_name, ", *operand");
+        args = register_name;
     case "xor";
         #through;
     case "and";
@@ -64,7 +65,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     case "or";
         #through;
     case "load";
-        args = join("*", register_name, ", operand");
+        args = join("*", register_name);
     }
     
     if variants & .Imm {
@@ -130,90 +131,21 @@ indirect_y_indexed :: () -> u16 #expand {
     return little_endian(*`memory[`data[1]]) + `y;
 }
 
-load :: inline (register: *u8, value: u8, flags: *Status_Flags) {
-    reset_flags(flags, .Zero | .Negative);
+load :: inline (register: *u8) #expand {
+    reset_flags(*`flags, .Zero | .Negative);
 
     // We hardcode the flags for now, in the future we may want to use
     // assembly to cast x86 flags to 6502. I guess that would be faster.
-    if value == 0       flags.* |= .Zero;
-    else if value > 127 flags.* |= .Negative;
-    register.* = value;
+    if `operand.* == 0       `flags |= .Zero;
+    else if `operand.* > 127 `flags |= .Negative;
+    register.* = `operand.*;
 }
 
-
-// --- Compares ---
-compare :: inline (register: u8, value: u8, flags: *Status_Flags) #expand {
-    reset_flags(flags, .Zero | .Negative | .Carry);
-    if register >= value  flags.* |= .Carry;
-    if register == value  flags.* |= .Zero;
-    if register <  value  flags.* |= .Negative;
-}
-compare_variant :: inline (register: u8) #expand {
-    reset_flags(`flags, .Zero | .Negative | .Carry);
-    if register >= `operand  `flags.* |= .Carry;
-    if register == `operand  `flags.* |= .Zero;
-    if register <  `operand  `flags.* |= .Negative;
-}
-
-cmp_imm :: inline (machine: *Machine_6502, data: []u8) {
-    compare(machine.a, data[1], *machine.flags);
-}
-cmp_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    compare(a, memory[data[1]], *flags);
-}
-
-cmp_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
-    address := cast(u16)data[1] + cast(u16)x;
-    compare(a, memory[address], *flags);
-}
-
-cmp_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    compare(a, memory[address], *flags);
-}
-
-cmp_abs_x :: inline (using machine: *Machine_6502, data: []u8) {
-    base_address := little_endian(*data[1]);
-    compare(a, memory[base_address + x], *flags);
-}
-
-cmp_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
-    base_address := little_endian(*data[1]);
-    compare(a, memory[base_address + y], *flags);
-}
-
-cmp_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    compare(a, memory[x_indexed_indirect()], *flags);
-}
-
-cmp_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    compare(machine.a, memory[indirect_y_indexed()], *flags);
-}
-
-cpx_imm :: inline (machine: *Machine_6502, data: []u8) {
-    compare(machine.x, data[1], *machine.flags);
-}
-
-cpx_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    compare(x, memory[data[1]], *flags);
-}
-
-cpx_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    compare(x, memory[address], *flags);
-}
-
-cpy_imm :: inline (machine: *Machine_6502, data: []u8) {
-    compare(machine.y, data[1], *machine.flags);
-}
-
-cpy_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    compare(y, memory[data[1]], *flags);
-}
-
-cpy_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*data[1]);
-    compare(y, memory[address], *flags);
+compare :: inline (register: u8) #expand {
+    reset_flags(*`flags, .Zero | .Negative | .Carry);
+    if register >= `operand.*  `flags |= .Carry;
+    if register == `operand.*  `flags |= .Zero;
+    if register <  `operand.*  `flags |= .Negative;
 }
 
 // --- Stores ---
