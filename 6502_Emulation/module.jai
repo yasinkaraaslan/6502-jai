@@ -58,10 +58,10 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x5
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x6
     null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x7
-    null,    sta_x_idx_ind, null,    null, sty_zpg,   sta_zpg,   stx_zpg,   null, null,      null,      null, null, sty_abs, sta_abs,   stx_abs,   null, // 0x8
-    null,    sta_ind_y_idx, null,    null, sty_zpg_x, sta_zpg_x, stx_zpg_y, null, null,      sta_abs_y, null, null, null,    sta_abs_x, null,      null, // 0x9
-    ldy_imm, lda_x_idx_ind, ldx_imm, null, ldy_zpg,   lda_zpg,   ldx_zpg,   null, null,      lda_imm,   null, null, null,    lda_abs,   ldx_abs,   null, // 0xA
-    null,    lda_ind_y_idx, null,    null, ldy_zpg_x, lda_zpg_x, ldx_zpg_y, null, null,      lda_abs_y, null, null, null,    lda_abs_x, ldx_abs_y, null, // 0xB
+    null,    sta_x_idx_ind, null,    null, sty_zpg,   sta_zpg,   stx_zpg,   null, null,      null,      txa,  null, sty_abs, sta_abs,   stx_abs,   null, // 0x8
+    null,    sta_ind_y_idx, null,    null, sty_zpg_x, sta_zpg_x, stx_zpg_y, null, tya,       sta_abs_y, txs,  null, null,    sta_abs_x, null,      null, // 0x9
+    ldy_imm, lda_x_idx_ind, ldx_imm, null, ldy_zpg,   lda_zpg,   ldx_zpg,   null, tay,       lda_imm,   tax,  null, null,    lda_abs,   ldx_abs,   null, // 0xA
+    null,    lda_ind_y_idx, null,    null, ldy_zpg_x, lda_zpg_x, ldx_zpg_y, null, null,      lda_abs_y, tsx,  null, null,    lda_abs_x, ldx_abs_y, null, // 0xB
     cpy_imm, cmp_x_idx_ind, null,    null, cpy_zpg,   cmp_zpg,   null,      null, cmp_imm,   null,      null, null, cpy_abs, cmp_abs,   null,      null, // 0xC
     null,    cmp_ind_y_idx, null,    null, null,      cmp_zpg_x, null,      null, cmp_abs_y, null,      null, null, null,    cmp_abs_x, null,      null, // 0xD
     cpx_imm, null,          null,    null, cpx_zpg,   null,      null,      null, null,      null,      nop,  null, cpx_abs, null,      null,      null, // 0xE

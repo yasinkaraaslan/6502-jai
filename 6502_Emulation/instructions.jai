@@ -1,3 +1,5 @@
+// TODO(yasin): Use a metaprogram to generate these.
+
 nop :: inline (machine: *Machine_6502, data: []u8) {
     // You may want to use x86 nop instruction if you want to be fancy.
 }
@@ -10,11 +12,20 @@ little_endian :: inline (address: *u8) -> u16 {
     return (cast(*u16)address).*;
 }
 
+x_indexed_indirect :: inline (memory: []u8, x: u8, value: u8) -> u16 {
+    base_address := cast(u16)value + cast(u16)x;
+    return little_endian(*memory[base_address]);
+}
+
+indirect_y_indexed :: inline (memory: []u8, y: u8, value: u8) -> u16 {
+    return little_endian(*memory[value]) + y;
+}
+
 // --- Loads ---
 load :: inline (register: *u8, value: u8, flags: *Status_Flags) {
     reset_flags(flags, .Zero | .Negative);
-    
-    // We hardcode the flags for now, in the future we may want to use 
+
+    // We hardcode the flags for now, in the future we may want to use
     // assembly to cast x86 flags to 6502. I guess that should be faster.
     if value == 0       flags.* |= .Zero;
     else if value > 127 flags.* |= .Negative;
@@ -50,14 +61,13 @@ lda_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 lda_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    base_address := cast(u16)data[1] + cast(u16)x;
-    address := little_endian(*memory[base_address]);
+    address := x_indexed_indirect(memory, x, data[1]);
     load(*a, memory[address], *machine.flags);
 }
 
 lda_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    base_address := little_endian(*memory[data[1]]);
-    load(*a, memory[base_address + y], *machine.flags);
+    address := indirect_y_indexed(memory, y, data[1]);
+    load(*a, memory[address], *machine.flags);
 }
 
 ldx_imm :: inline (machine: *Machine_6502, data: []u8) {
@@ -141,14 +151,13 @@ cmp_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 cmp_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    base_address := cast(u16)data[1] + cast(u16)x;
-    address := little_endian(*memory[base_address]);
+    address := x_indexed_indirect(memory, x, data[1]);
     compare(a, memory[address], *flags);
 }
 
 cmp_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    base_address := little_endian(*memory[data[1]]);
-    compare(machine.a, memory[base_address + y], *flags);
+    address := indirect_y_indexed(memory, y, data[1]);
+    compare(machine.a, memory[address], *flags);
 }
 
 cpx_imm :: inline (machine: *Machine_6502, data: []u8) {
@@ -201,13 +210,12 @@ sta_abs_y :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 sta_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    load_address := cast(u16)data[1] + cast(u16)x;
-    store_address := little_endian(*memory[load_address]);
-    memory[store_address] = a;
+    address := x_indexed_indirect(memory, x, data[1]);
+    memory[address] = a;
 }
 
 sta_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
-    address := little_endian(*memory[data[1]]) + y;
+    address := indirect_y_indexed(memory, y, data[1]);
     memory[address] = a;
 }
 
@@ -233,4 +241,38 @@ sty_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
 
 sty_abs :: inline (using machine: *Machine_6502, data: []u8) {
     memory[little_endian(*data[1])] = y;
+}
+
+// --- Transfers ---
+transfer :: inline (from: *u8, to: *u8, flags: *Status_Flags) {
+    reset_flags(flags, .Negative | .Zero);
+    num := from.*;
+    if num == 0        flags |= .Zero;
+    else if num > 127  flags |= .Negative;
+    to.* = num;
+}
+
+tax :: inline (using machine: *Machine_6502, data: []u8) {
+    transfer(*a, *x, *flags);
+}
+
+tay :: inline (using machine: *Machine_6502, data: []u8) {
+    transfer(*a, *y, *flags);
+}
+
+txa :: inline (using machine: *Machine_6502, data: []u8) {
+    transfer(*x, *a, *flags);
+}
+
+tya :: inline (using machine: *Machine_6502, data: []u8) {
+    transfer(*y, *a, *flags);
+}
+
+tsx :: inline (using machine: *Machine_6502, data: []u8) {
+    transfer(*sp, *x, *flags);
+}
+
+txs :: inline (using machine: *Machine_6502, data: []u8) {
+    // Doesn't have an effect on the flags.
+    x = sp;
 }
