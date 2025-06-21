@@ -56,8 +56,8 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     null,    and_ind_y_idx, null,    null, null,      and_zpg_x, null,      null, null,      and_abs_y, null, null, null,    and_abs_x, null,      null, // 0x3
     null,    eor_x_idx_ind, null,    null, null,      eor_zpg,   null,      null, null,      eor_imm,   null, null, null,    eor_abs,   null,      null, // 0x4
     null,    eor_ind_y_idx, null,    null, null,      eor_zpg_x, null,      null, null,      eor_abs_y, null, null, null,    eor_abs_x, null,      null, // 0x5
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x6
-    null,    null,          null,    null, null,      null,      null,      null, null,      null,      null, null, null,    null,      null,      null, // 0x7
+    null,    adc_x_idx_ind, null,    null, adc_zpg,   null,      null,      null, null,      adc_imm,   null, null, null,    adc_abs,   null,      null, // 0x6
+    null,    adc_ind_y_idx, null,    null, adc_zpg_x, null,      null,      null, null,      adc_abs_y, null, null, null,    adc_abs_x, null,      null, // 0x7
     null,    sta_x_idx_ind, null,    null, sty_zpg,   sta_zpg,   stx_zpg,   null, null,      null,      txa,  null, sty_abs, sta_abs,   stx_abs,   null, // 0x8
     null,    sta_ind_y_idx, null,    null, sty_zpg_x, sta_zpg_x, stx_zpg_y, null, tya,       sta_abs_y, txs,  null, null,    sta_abs_x, null,      null, // 0x9
     ldy_imm, lda_x_idx_ind, ldx_imm, null, ldy_zpg,   lda_zpg,   ldx_zpg,   null, tay,       lda_imm,   tax,  null, null,    lda_abs,   ldx_abs,   null, // 0xA

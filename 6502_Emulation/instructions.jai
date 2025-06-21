@@ -217,9 +217,10 @@ bit_test :: (register: u8) #expand {
     if `operand.* > 127            `flags |= .Negative;
     if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
 }
+
 adc :: (register: *u8) #expand {
     num := `operand.*;
-    carry := ifx `flags & .Carry == .Carry then 1 else 0;
+    carry : u8 = ifx `flags & .Carry == .Carry then cast(u8)1 else cast(u8)0;
     result := register.* + num + carry;
 
     reset_flags(*`flags, .Negative | .Overflow | .Zero | .Carry);
@@ -231,15 +232,13 @@ adc :: (register: *u8) #expand {
     
     // Ugh...
     BIT_7 :: 0b1000_0000;
-    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_6) `flags |= .Overflow;
+    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) `flags |= .Overflow;
 
     register.* = result;
 }
 
-// Most of this is the same as above, maybe there is a way to simplify?
 sbc :: (register: *u8) #expand {
-    // Weird shadowing
     new_operand := ~`operand.*; // We invert the bits so we can pass it to adc
-    operand := *new_operand;
+    operand := *new_operand; // Weird shadowing to make it work.
     adc(register);
 }
