@@ -84,6 +84,30 @@ sta_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
     memory[store_index] = a;
 }
 
+stx_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    memory[data[1]] = x;
+}
+
+stx_zpg_y :: inline (using machine: *Machine_6502, data: []u8) {
+    memory[data[1] + y] = x;
+}
+
+stx_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    memory[little_endian(*data[1])] = x;
+}
+
+sty_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    memory[data[1]] = y;
+}
+
+sty_zpg_x :: inline (using machine: *Machine_6502, data: []u8) {
+    memory[data[1] + x] = y;
+}
+
+sty_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    memory[little_endian(*data[1])] = y;
+}
+
 sta_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
     store_index := little_endian(*memory[data[1]]) + y;
     memory[store_index] = a;
