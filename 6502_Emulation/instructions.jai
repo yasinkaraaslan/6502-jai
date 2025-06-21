@@ -16,6 +16,9 @@
 #insert #run generate_instructions("eor", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "xor", "a");
 #insert #run generate_instructions("bit", .Zpg | .Abs, "bit_test", "a");
 
+#insert #run generate_instructions("adc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "adc", "a");
+#insert #run generate_instructions("sbc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "sbc", "a");
+
 #scope_file
 #import "String";
 Instruction_Variant_Flags :: enum_flags {
@@ -38,8 +41,10 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         variant_name: string;
         info_enum := cast(*Type_Info_Enum)type_info(Instruction_Variant_Flags);
         for info_enum.values {
-            if variant != xx it continue;
-            variant_name = to_lower_copy(info_enum.names[it_index]);
+            if variant == xx it {
+                variant_name = to_lower_copy(info_enum.names[it_index]);
+                break;
+            }
         }
         append(*sb, join(instruction_initials, "_", variant_name));
         append(*sb, " :: (using machine: *Machine_6502, data: []u8) {\n");
@@ -52,6 +57,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         append(*sb, "}\n");
     }
 
+    // We could've used just *register_name for everything and it would've been a lot simpler, but whatever.
     if proc_name == {
     case "bit_test";
         #through;
@@ -59,13 +65,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         #through;
     case "store";
         args = register_name;
-    case "xor";
-        #through;
-    case "and";
-        #through;
-    case "or";
-        #through;
-    case "load";
+    case;
         args = join("*", register_name);
     }
     
@@ -132,7 +132,7 @@ indirect_y_indexed :: () -> u16 #expand {
     return little_endian(*`memory[`data[1]]) + `y;
 }
 
-load :: inline (register: *u8) #expand {
+load :: (register: *u8) #expand {
     reset_flags(*`flags, .Zero | .Negative);
 
     // We hardcode the flags for now, in the future we may want to use
@@ -142,44 +142,44 @@ load :: inline (register: *u8) #expand {
     register.* = `operand.*;
 }
 
-compare :: inline (register: u8) #expand {
+compare :: (register: u8) #expand {
     reset_flags(*`flags, .Zero | .Negative | .Carry);
     if register >= `operand.*  `flags |= .Carry;
     if register == `operand.*  `flags |= .Zero;
     if register <  `operand.*  `flags |= .Negative;
 }
 
-store :: inline (value: u8) #expand {
+store :: (value: u8) #expand {
     `operand.* = value;
 }
 
 // --- Transfers ---
-transfer :: inline (from: *u8, to: *u8, flags: *Status_Flags) {
-    reset_flags(flags, .Negative | .Zero);
+transfer :: (from: *u8, to: *u8) #expand {
+    reset_flags(*`flags, .Negative | .Zero);
     num := from.*;
-    if num == 0        flags.* |= .Zero;
-    else if num > 127  flags.* |= .Negative;
+    if num == 0        `flags |= .Zero;
+    else if num > 127  `flags |= .Negative;
     to.* = num;
 }
 
 tax :: inline (using machine: *Machine_6502, data: []u8) {
-    transfer(*a, *x, *flags);
+    transfer(*a, *x);
 }
 
 tay :: inline (using machine: *Machine_6502, data: []u8) {
-    transfer(*a, *y, *flags);
+    transfer(*a, *y);
 }
 
 txa :: inline (using machine: *Machine_6502, data: []u8) {
-    transfer(*x, *a, *flags);
+    transfer(*x, *a);
 }
 
 tya :: inline (using machine: *Machine_6502, data: []u8) {
-    transfer(*y, *a, *flags);
+    transfer(*y, *a);
 }
 
 tsx :: inline (using machine: *Machine_6502, data: []u8) {
-    transfer(*sp, *x, *flags);
+    transfer(*sp, *x);
 }
 
 txs :: inline (using machine: *Machine_6502, data: []u8) {
@@ -188,32 +188,58 @@ txs :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 // -- Logical --
-and :: inline (register: *u8) #expand {
+and :: (register: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
     if `operand.* == 0        `flags |= .Zero;
     else if `operand.* > 127  `flags |= .Negative;
     register.* &= `operand.*;
 }
 
-or :: inline (register: *u8) #expand {
+or :: (register: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
     if `operand.* == 0        `flags |= .Zero;
     else if `operand.* > 127  `flags |= .Negative;
     register.* |= `operand.*;
 }
 
-xor :: inline (register: *u8) #expand {
+xor :: (register: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
     if `operand.* == 0        `flags |= .Zero;
     else if `operand.* > 127  `flags |= .Negative;
     register.* ^= `operand.*;
 }
 
-bit_test :: inline (register: u8) #expand {
+bit_test :: (register: u8) #expand {
     reset_flags(*`flags, .Negative | .Zero | .Overflow);
     BIT_6 :: 0b0100_0000;
     result := register & `operand.*;
     if result == 0                 `flags |= .Zero;
     if `operand.* > 127            `flags |= .Negative;
     if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
+}
+adc :: (register: *u8) #expand {
+    num := `operand.*;
+    carry := ifx `flags & .Carry == .Carry then 1 else 0;
+    result := register.* + num + carry;
+
+    reset_flags(*`flags, .Negative | .Overflow | .Zero | .Carry);
+
+
+    if result > 127         `flags |= .Negative;
+    if result == 0          `flags |= .Zero;
+    if result < register.*  `flags |= .Carry;
+    
+    // Ugh...
+    BIT_7 :: 0b1000_0000;
+    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_6) `flags |= .Overflow;
+
+    register.* = result;
+}
+
+// Most of this is the same as above, maybe there is a way to simplify?
+sbc :: (register: *u8) #expand {
+    // Weird shadowing
+    new_operand := ~`operand.*; // We invert the bits so we can pass it to adc
+    operand := *new_operand;
+    adc(register);
 }
