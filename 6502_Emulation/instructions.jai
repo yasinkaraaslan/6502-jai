@@ -1,4 +1,5 @@
 // TODO(yasin): Use a metaprogram to generate these.
+// Example: #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Idx_Y_Ind);
 
 nop :: inline (machine: *Machine_6502, data: []u8) {
     // You may want to use x86 nop instruction if you want to be fancy.
@@ -298,6 +299,14 @@ xor :: inline (register: *u8, value: u8, flags: *Status_Flags) {
     else if value > 127  flags.* |= .Negative;
     register.* ^= value;
 }
+bit_test :: inline (register: u8, value: u8, flags: *Status_Flags) {
+    reset_flags(flags, .Negative | .Zero | .Overflow);
+    BIT_6 :: 0b0100_0000;
+
+    if value == 0             flags.* |= .Zero;
+    else if value > 127       flags.* |= .Negative;
+    if value & BIT_6 == BIT_6 flags.* |= .Overflow;
+}
 
 and_imm :: inline (using machine: *Machine_6502, data: []u8) {
     and(*a, data[1], *flags);
@@ -411,4 +420,13 @@ eor_x_idx_ind :: inline (using machine: *Machine_6502, data: []u8) {
 eor_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
     address := indirect_y_indexed(memory, y, data[1]);
     xor(*a, memory[address], *flags);
+}
+
+bit_zpg :: inline (using machine: *Machine_6502, data: []u8) {
+    bit_test(*a, memory[data[1]], *flags);
+}
+
+bit_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    address := little_endian(*data[1]);
+    bit_test(*a, memory[address], *flags);
 }
