@@ -423,10 +423,10 @@ eor_ind_y_idx :: inline (using machine: *Machine_6502, data: []u8) {
 }
 
 bit_zpg :: inline (using machine: *Machine_6502, data: []u8) {
-    bit_test(*a, memory[data[1]], *flags);
+    bit_test(a, memory[data[1]], *flags);
 }
 
 bit_abs :: inline (using machine: *Machine_6502, data: []u8) {
     address := little_endian(*data[1]);
-    bit_test(*a, memory[address], *flags);
+    bit_test(a, memory[address], *flags);
 }
