@@ -1,10 +1,5 @@
-// This is a very simple 6502 emulation module that executes the given instruction by using a lookup table of procedures.
-// It doesn't count cycles or anything, but you can modify it to do so.
-
-// TODO(yasin): Hardware interruptions.
-
 MEMORY_SIZE_6502 :: 64 * 1024;
-Machine_6502 :: struct {
+State_6502 :: struct {
     memory: []u8;
     a, x, y, sp: u8;
     pc: u16;
@@ -22,42 +17,61 @@ Status_Flags :: enum_flags u8 #specified {
     Negative :: 0x80;
 }
 
+Machine_6502 :: struct {
+    state: State_6502;
+    pins: Pins_6502;
+}
+
+// High true, low false
+Pins_6502 :: struct {
+    a: [16]bool; // address bus
+    d: [8]bool; // data bus
+    v_ss, v_cc, sync: bool;
+    phi: [3]bool; // Controls the clock.
+    r_w := true; // read on high
+    reset, irq, nmi, so := true; // These are active on low for some reason
+    ready := true; 
+}
+
 init :: (using machine: *Machine_6502) {
-    memory.data = alloc(MEMORY_SIZE_6502);
-    memory.count = MEMORY_SIZE_6502;
+    state.memory.data = alloc(MEMORY_SIZE_6502);
+    state.memory.count = MEMORY_SIZE_6502;
 }
 
 reset :: (using machine: *Machine_6502) {
-    // flags = .Unused; // This is wrong. @Incomplete
-    sp = 0xFD;
-    pc = u16_le(*memory[0xFFFC]);
-    if pc == 0 {
-        log_error("No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
+    state.flags = .Unused | .Interrupt_Disable;
+    state.pc = u16_le(*state.memory[0xFFFC]);
+    if state.pc == 0 {
+        log_error("(6502) No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
     }
+    state.sp = 0xFF; 
+    
+    // We do not push the program-counter, maybe we should.
 }
 
 deinit :: (using machine: *Machine_6502) {
-    free(memory.data);
-    memory.count = 0;
+    free(state.memory.data);
+    state.memory.count = 0;
+    pins = .{};
 }
 
 cycle :: (using machine: *Machine_6502) {
-    instruction_proc := INSTRUCTION_TABLE[memory[pc]];
+    instruction_proc := INSTRUCTION_TABLE[state.memory[state.pc]];
 
     if instruction_proc == null {
-        log_error("Instruction 0x% is not available.", FormatInt.{value=memory[pc], base=16, minimum_digits=2});
+        log_error("(6502) Instruction 0x% is not available.", FormatInt.{value=state.memory[state.pc], base=16, minimum_digits=2});
         return;
     }
 
-    instruction_proc(machine);
-    pc += 1;
+    instruction_proc(*state);
+    state.pc += 1;
 }
 
 #scope_module
 #import "Basic"; // for alloc
 #load "instructions.jai";
 
-Instruction_Proc :: #type (machine: *Machine_6502);
+Instruction_Proc :: #type (state: *State_6502);
 
 // TODO(yasin): Extended instruction table, maybe 65c02 or something else.
 

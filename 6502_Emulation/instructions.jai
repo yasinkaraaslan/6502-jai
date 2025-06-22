@@ -63,7 +63,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
             }
         }
         append(*sb, join(instruction_initials, "_", variant_name));
-        append(*sb, " :: (using machine: *Machine_6502) {\n");
+        append(*sb, " :: (using state: *State_6502) {\n");
         append(*sb, tprint("    operand := *%;\n", operand));
         append(*sb, join("    ", proc_name, "("));
     
@@ -210,6 +210,7 @@ pull_stack_2 :: () -> u16 #expand {
 }
 
 // Actual instruction macros
+
 load :: (register: *u8) #expand {
     reset_flags(*`flags, .Zero | .Negative);
 
@@ -239,27 +240,27 @@ transfer :: (from: *u8, to: *u8) #expand {
     to.* = num;
 }
 
-tax :: inline (using machine: *Machine_6502) {
+tax :: inline (using state: *State_6502) {
     transfer(*a, *x);
 }
 
-tay :: inline (using machine: *Machine_6502) {
+tay :: inline (using state: *State_6502) {
     transfer(*a, *y);
 }
 
-txa :: inline (using machine: *Machine_6502) {
+txa :: inline (using state: *State_6502) {
     transfer(*x, *a);
 }
 
-tya :: inline (using machine: *Machine_6502) {
+tya :: inline (using state: *State_6502) {
     transfer(*y, *a);
 }
 
-tsx :: inline (using machine: *Machine_6502) {
+tsx :: inline (using state: *State_6502) {
     transfer(*sp, *x);
 }
 
-txs :: inline (using machine: *Machine_6502) {
+txs :: inline (using state: *State_6502) {
     // Doesn't have an effect on the flags.
     x = sp;
 }
@@ -317,31 +318,31 @@ sbc :: (register: *u8) #expand {
 }
 
 // --- Set/Clear Flags ---
-clc :: inline (using machine: *Machine_6502) {
+clc :: inline (using state: *State_6502) {
     reset_flags(*flags, .Carry);
 }
 
-sec :: inline (using machine: *Machine_6502) {
+sec :: inline (using state: *State_6502) {
     flags |= .Carry;
 }
 
-clv :: inline (using machine: *Machine_6502) {
+clv :: inline (using state: *State_6502) {
     reset_flags(*flags, .Overflow);
 }
 
-cld :: inline (using machine: *Machine_6502) {
+cld :: inline (using state: *State_6502) {
     reset_flags(*flags, .Decimal);
 }
 
-sed :: inline (using machine: *Machine_6502) {
+sed :: inline (using state: *State_6502) {
     flags |= .Decimal;
 }
 
-cli :: inline (using machine: *Machine_6502) {
+cli :: inline (using state: *State_6502) {
     reset_flags(*flags, .Interrupt_Disable);
 }
 
-sei :: inline (using machine: *Machine_6502) {
+sei :: inline (using state: *State_6502) {
     flags |= .Interrupt_Disable;
 }
 
@@ -352,13 +353,13 @@ inc :: () #expand {
     basic_flags(*`flags, `operand.*);
 }
 
-inx :: inline (using machine: *Machine_6502) {
+inx :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     x += 1;
     basic_flags(*flags, x);
 }
 
-iny :: inline (using machine: *Machine_6502) {
+iny :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     y += 1;
     basic_flags(*flags, y);
@@ -370,12 +371,12 @@ dec :: () #expand {
     basic_flags(*`flags, `operand.*);
 }
 
-dex :: inline (using machine: *Machine_6502) {
+dex :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     x -= 1;
     basic_flags(*flags, x);
 }
-dey :: inline (using machine: *Machine_6502) {
+dey :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     y -= 1;
     basic_flags(*flags, y);
@@ -423,54 +424,54 @@ rol :: (value: *u8) #expand {
 }
 
 // --- Jumps ---
-jmp_abs :: inline (using machine: *Machine_6502) {
+jmp_abs :: inline (using state: *State_6502) {
     pc = u16_le(*memory[pc+1]);
 }
 
-jmp_ind :: inline (using machine: *Machine_6502) {
+jmp_ind :: inline (using state: *State_6502) {
     pc = u16_le(*memory[u16_le(*memory[pc+1])]);
 }
 
-jsr_abs :: inline (using machine: *Machine_6502) {
+jsr_abs :: inline (using state: *State_6502) {
     push_stack(pc + 3); // return address, pc + 2 on the chip for various reasons but we put the actual address here. 
     pc = u16_le(*memory[pc+1]);
 }
 
-rts :: inline (using machine: *Machine_6502) {
+rts :: inline (using state: *State_6502) {
     pc = pull_stack_2();
 }
 
 // --- Stack operations ---
-pha :: inline (using machine: *Machine_6502) {
+pha :: inline (using state: *State_6502) {
     push_stack(a);
 }
 
-pla :: inline (using machine: *Machine_6502) {
+pla :: inline (using state: *State_6502) {
     a = pull_stack();
 }
 
-php :: inline (using machine: *Machine_6502) {
+php :: inline (using state: *State_6502) {
     push_stack(xx flags);
 }
 
-plp :: inline (using machine: *Machine_6502) {
+plp :: inline (using state: *State_6502) {
     flags = xx pull_stack();
 }
 
 // --- System ---
-brk :: inline (using machine: *Machine_6502) {
+brk :: inline (using state: *State_6502) {
     push_stack(pc);
     push_stack(xx flags);
     pc = 0xFFFE; // IRQ interrupt vector
     flags |= .Break;
 }
 
-rti :: inline (using machine: *Machine_6502) {
+rti :: inline (using state: *State_6502) {
     flags = xx pull_stack();
     pc = pull_stack_2();
 }
 
-nop :: inline (machine: *Machine_6502) {
+nop :: inline (state: *State_6502) {
     // x86 nop
     // #bytes 0x90;
 }
@@ -486,34 +487,34 @@ branch_on :: (flag: Status_Flags, on := true) #expand {
     }
 }
 
-beq :: inline (using machine: *Machine_6502) {
+beq :: inline (using state: *State_6502) {
     branch_on(.Zero);
 }
 
-bne :: inline (using machine: *Machine_6502) {
+bne :: inline (using state: *State_6502) {
     branch_on(.Zero, false);
 }
 
-bcs :: inline (using machine: *Machine_6502) {
+bcs :: inline (using state: *State_6502) {
     branch_on(.Carry);
 }
 
-bcc :: inline (using machine: *Machine_6502) {
+bcc :: inline (using state: *State_6502) {
     branch_on(.Carry, false);
 }
 
-bvs :: inline (using machine: *Machine_6502) {
+bvs :: inline (using state: *State_6502) {
     branch_on(.Overflow);
 }
 
-bvc :: inline (using machine: *Machine_6502) {
+bvc :: inline (using state: *State_6502) {
     branch_on(.Overflow, false);
 }
 
-bmi :: inline (using machine: *Machine_6502) {
+bmi :: inline (using state: *State_6502) {
     branch_on(.Negative);
 }
 
-bpl :: inline (using machine: *Machine_6502) {
+bpl :: inline (using state: *State_6502) {
     branch_on(.Negative, false);
 }
