@@ -299,21 +299,32 @@ inc :: () #expand {
 }
 
 inx :: inline (using machine: *Machine_6502, data: []u8) {
-    reset_flags(*`flags, .Negative | .Zero);
+    reset_flags(*flags, .Negative | .Zero);
     x += 1;
-    basic_flags(*`flags, x);
+    basic_flags(*flags, x);
 }
 
 iny :: inline (using machine: *Machine_6502, data: []u8) {
-    reset_flags(*`flags, .Negative | .Zero);
+    reset_flags(*flags, .Negative | .Zero);
     y += 1;
-    basic_flags(*`flags, y);
+    basic_flags(*flags, y);
 }
 
 dec :: () #expand {
     reset_flags(*`flags, .Negative | .Zero);
     `operand.* -= 1;
     basic_flags(*`flags, `operand.*);
+}
+
+dex :: inline (using machine: *Machine_6502, data: []u8) {
+    reset_flags(*flags, .Negative | .Zero);
+    x -= 1;
+    basic_flags(*flags, x);
+}
+dey :: inline (using machine: *Machine_6502, data: []u8) {
+    reset_flags(*flags, .Negative | .Zero);
+    y -= 1;
+    basic_flags(*flags, y);
 }
 
 // --- Shifts and Rotations ---
