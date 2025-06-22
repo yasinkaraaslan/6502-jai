@@ -43,14 +43,14 @@ deinit :: (using machine: *Machine_6502) {
 
 cycle :: (using machine: *Machine_6502) {
     instruction_proc := INSTRUCTION_TABLE[memory[pc]];
-    pc += 1;
 
     if instruction_proc == null {
-        log_error("Instruction 0x% is not available.", FormatInt.{value=data[0], base=16, minimum_digits=2});
+        log_error("Instruction 0x% is not available.", FormatInt.{value=memory[pc], base=16, minimum_digits=2});
         return;
     }
 
     instruction_proc(machine);
+    pc += 1;
 }
 
 #scope_module

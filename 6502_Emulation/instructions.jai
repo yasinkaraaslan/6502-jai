@@ -99,37 +99,37 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     }
     
     if variants & .Imm {
-        operand = "memory[pc]";
+        operand = "memory[pc+1]";
         num_data = 1;
         generate(.Imm);
     }
     if variants & .Zpg {
-        operand = "memory[memory[pc]]";
+        operand = "memory[memory[pc+1]]";
         num_data = 1;
         generate(.Zpg);
     }
     if variants & .Zpg_X {
-        operand = "memory[cast(u16)memory[pc] + cast(u16)x]";
+        operand = "memory[cast(u16)memory[pc+1] + cast(u16)x]";
         num_data = 1;
         generate(.Zpg_X);
     }
     if variants & .Zpg_Y {
-        operand = "memory[cast(u16)memory[pc] + cast(u16)y]";
+        operand = "memory[cast(u16)memory[pc+1] + cast(u16)y]";
         num_data = 1;
         generate(.Zpg_Y);
     }
     if variants & .Abs {
-        operand = "memory[u16_le(*memory[pc])]";
+        operand = "memory[u16_le(*memory[pc+1])]";
         num_data = 2;
         generate(.Abs);
     }
     if variants & .Abs_X {
-        operand = "memory[u16_le(*memory[pc]) + x]";
+        operand = "memory[u16_le(*memory[pc+1]) + x]";
         num_data = 2;
         generate(.Abs_X);
     }
     if variants & .Abs_Y {
-        operand = "memory[u16_le(*memory[pc]) + y]";
+        operand = "memory[u16_le(*memory[pc+1]) + y]";
         num_data = 2;
         generate(.Abs_Y);
     }
@@ -174,11 +174,11 @@ u16_le :: inline (address: *u8) -> u16 {
 }
 
 x_indexed_indirect :: () -> u16 #expand {
-    base_address := cast(u16)`memory[`pc] + cast(u16)`x;
+    base_address := cast(u16)`memory[`pc+1] + cast(u16)`x;
     return u16_le(*`memory[base_address]);
 }
 indirect_y_indexed :: () -> u16 #expand {
-    return u16_le(*`memory[`memory[`pc]]) + `y;
+    return u16_le(*`memory[`memory[`pc+1]]) + `y;
 }
 
 push_stack :: (value: u8) #expand {
@@ -188,7 +188,7 @@ push_stack :: (value: u8) #expand {
 
 push_stack :: (value: u16) #expand {
     `memory[0x100 & `sp]   = cast(u8)(value >> 8);
-    `memory[0x100 & `sp-1] = cast(u8)(value & 0xFF);
+    `memory[0x100 & (`sp-1)] = cast(u8)(value & 0xFF);
 
     `sp -= 2;
 }
@@ -424,16 +424,16 @@ rol :: (value: *u8) #expand {
 
 // --- Jumps ---
 jmp_abs :: inline (using machine: *Machine_6502) {
-    pc = u16_le(*memory[pc]);
+    pc = u16_le(*memory[pc+1]);
 }
 
 jmp_ind :: inline (using machine: *Machine_6502) {
-    pc = u16_le(*memory[u16_le(*memory[pc])]);
+    pc = u16_le(*memory[u16_le(*memory[pc+1])]);
 }
 
 jsr_abs :: inline (using machine: *Machine_6502) {
-    push_stack(pc + 2); // return address
-    pc = u16_le(*memory[pc]);
+    push_stack(pc + 3); // return address, pc + 2 on the chip for various reasons but we put the actual address here. 
+    pc = u16_le(*memory[pc+1]);
 }
 
 rts :: inline (using machine: *Machine_6502) {
@@ -477,7 +477,7 @@ nop :: inline (machine: *Machine_6502) {
 
 // --- Branches ---
 branch_on :: (flag: Status_Flags, on := true) #expand {
-    rel_address := `memory[`pc];
+    rel_address := `memory[`pc+1];
     if (`flags & flag != 0) == on {
         if rel_address & BIT_7
             `pc -= rel_address - 255 - 1; // Two's complement, we can't just put -256 because it exceeds 8 bytes
