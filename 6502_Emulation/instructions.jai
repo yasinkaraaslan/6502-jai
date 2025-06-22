@@ -1,26 +1,37 @@
 // We generate everything except for the implied ones.
+
+// Loads
 #insert #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "load", "a");
 #insert #run generate_instructions("ldx", .Imm | .Zpg | .Zpg_Y | .Abs | .Abs_X | .Abs_Y, "load", "x");
 #insert #run generate_instructions("ldy", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y, "load", "y");
 
+// Compares
 #insert #run generate_instructions("cmp", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "compare", "a");
 #insert #run generate_instructions("cpx", .Imm | .Zpg | .Abs, "compare", "x");
 #insert #run generate_instructions("cpy", .Imm | .Zpg | .Abs, "compare", "y");
 
+// Stores
 #insert #run generate_instructions("sta", .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "store", "a");
 #insert #run generate_instructions("stx", .Zpg | .Zpg_Y | .Abs, "store", "x");
 #insert #run generate_instructions("sty", .Zpg | .Zpg_X | .Abs, "store", "y");
 
+// Logical
 #insert #run generate_instructions("and", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "and", "a");
 #insert #run generate_instructions("ora", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "or", "a");
 #insert #run generate_instructions("eor", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "xor", "a");
 #insert #run generate_instructions("bit", .Zpg | .Abs, "bit_test", "a");
 
+// Add, sub
 #insert #run generate_instructions("adc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "adc", "a");
 #insert #run generate_instructions("sbc", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "sbc", "a");
+#insert #run generate_instructions("inc", .Zpg | .Zpg_X | .Abs | .Abs_X, "inc");
+#insert #run generate_instructions("dec", .Zpg | .Zpg_X | .Abs | .Abs_X, "dec");
 
-#insert #run generate_instructions("inc", .Zpg | .Zpg_X | .Abs | .Abs_X, "inc", "");
-#insert #run generate_instructions("dec", .Zpg | .Zpg_X | .Abs | .Abs_X, "dec", "");
+// Shifts, rotations
+#insert #run generate_instructions("lsr", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "lsr");
+#insert #run generate_instructions("asl", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "asl");
+#insert #run generate_instructions("rol", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "rol");
+#insert #run generate_instructions("ror", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "ror");
 
 #scope_file
 #import "String";
@@ -34,9 +45,10 @@ Instruction_Variant_Flags :: enum_flags {
     Abs_Y;
     X_Idx_Ind;
     Ind_Y_Idx;
+    Acc;
 }
 
-generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name : string) -> string {
+generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name := "") -> string {
     operand: string;
     args: string = ---;
     sb: String_Builder;
@@ -62,16 +74,20 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
 
     // We could've used just *register_name for everything and it would've been a lot simpler, but whatever.
     if proc_name == {
-    case "dec";
-        #through;
+    case "dec"; #through;
     case "inc";
         args = "";
-    case "bit_test";
-        #through;
-    case "compare";
-        #through;
+
+    case "bit_test"; #through;
+    case "compare";  #through;
     case "store";
         args = register_name;
+
+    case "ror"; #through;
+    case "rol"; #through;
+    case "asl"; #through;
+    case "lsr";
+        args = "operand";
     case;
         args = join("*", register_name);
     }
@@ -114,6 +130,12 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         operand = "memory[indirect_y_indexed()]";
         generate(.Ind_Y_Idx);
     }
+
+    if variants & .Acc {
+        operand = "a";
+        generate(.Acc);
+    }
+
     return builder_to_string(*sb);
 }
 
@@ -124,6 +146,11 @@ nop :: inline (machine: *Machine_6502, data: []u8) {
 
 reset_flags :: inline (flags: *Status_Flags, to_reset: Status_Flags) {
     flags.* &= ~(to_reset);
+}
+
+basic_flags :: inline (flags: *Status_Flags, value: u8) {
+    if value == 0                   flags.* |= .Zero;
+    else if value & BIT_7 == BIT_7  flags.* |= .Negative;
 }
 
 little_endian :: inline (address: *u8) -> u16 {
@@ -164,8 +191,7 @@ store :: (value: u8) #expand {
 transfer :: (from: *u8, to: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
     num := from.*;
-    if num == 0        `flags |= .Zero;
-    else if num > 127  `flags |= .Negative;
+    basic_flags(*`flags, num);
     to.* = num;
 }
 
@@ -197,28 +223,24 @@ txs :: inline (using machine: *Machine_6502, data: []u8) {
 // -- Logical --
 and :: (register: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
-    if `operand.* == 0        `flags |= .Zero;
-    else if `operand.* > 127  `flags |= .Negative;
+    basic_flags(*`flags, `operand.*);
     register.* &= `operand.*;
 }
 
 or :: (register: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
-    if `operand.* == 0        `flags |= .Zero;
-    else if `operand.* > 127  `flags |= .Negative;
+    basic_flags(*`flags, `operand.*);
     register.* |= `operand.*;
 }
 
 xor :: (register: *u8) #expand {
     reset_flags(*`flags, .Negative | .Zero);
-    if `operand.* == 0        `flags |= .Zero;
-    else if `operand.* > 127  `flags |= .Negative;
+    basic_flags(*`flags, `operand.*);
     register.* ^= `operand.*;
 }
 
 bit_test :: (register: u8) #expand {
     reset_flags(*`flags, .Negative | .Zero | .Overflow);
-    BIT_6 :: 0b0100_0000;
     result := register & `operand.*;
     if result == 0                 `flags |= .Zero;
     if `operand.* > 127            `flags |= .Negative;
@@ -230,15 +252,11 @@ do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
     result := register.* + num + carry;
 
     reset_flags(flags, .Negative | .Overflow | .Zero | .Carry);
+    basic_flags(flags, result);
 
-
-    if result > 127         flags.* |= .Negative;
-    if result == 0          flags.* |= .Zero;
     if result < register.*  flags.* |= .Carry;
-    
 
     // Ugh...
-    BIT_7 :: 0b1000_0000;
     if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) flags.* |= .Overflow;
 
     register.* = result;
@@ -273,35 +291,72 @@ sed :: inline (using machine: *Machine_6502, data: []u8) {
     flags |= .Decimal;
 }
 
-// -- Inc/Dec ---
+// --- Inc/Dec ---
 inc :: () #expand {
     reset_flags(*`flags, .Negative | .Zero);
-    result := `operand.* + 1;
-    if result == 0        `flags |= .Zero;
-    else if result > 127  `flags |= .Negative;
-
-    `operand.* = result;
+    `operand.* += 1;
+    basic_flags(*`flags, `operand.*);
 }
 
 inx :: inline (using machine: *Machine_6502, data: []u8) {
     reset_flags(*`flags, .Negative | .Zero);
     x += 1;
-    if x == 0        `flags |= .Zero;
-    else if x > 127  `flags |= .Negative;
+    basic_flags(*`flags, x);
 }
 
 iny :: inline (using machine: *Machine_6502, data: []u8) {
     reset_flags(*`flags, .Negative | .Zero);
     y += 1;
-    if y == 0        `flags |= .Zero;
-    else if y > 127  `flags |= .Negative;
+    basic_flags(*`flags, y);
 }
 
 dec :: () #expand {
     reset_flags(*`flags, .Negative | .Zero);
-    result := `operand.* - 1;
-    if result == 0        `flags |= .Zero;
-    else if result > 127  `flags |= .Negative;
-
-    `operand.* = result;
+    `operand.* -= 1;
+    basic_flags(*`flags, `operand.*);
 }
+
+// --- Shifts and Rotations ---
+lsr :: (value: *u8) #expand {
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
+    result := value.* >> 1;
+
+    basic_flags(*`flags, result);
+    if value.* & BIT_0 == BIT_0   `flags |= .Carry;
+
+    value.* = result;
+}
+
+asl :: (value: *u8) #expand {
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
+    result := value.* << 1;
+
+    basic_flags(*`flags, result);
+    if value.* & BIT_7 == BIT_7   `flags |= .Carry;
+
+    value.* = result;
+}
+
+ror :: (value: *u8) #expand {
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
+    result := value.* >>> 1;
+    
+    basic_flags(*`flags, result);
+    if value.* & BIT_0 == BIT_0   `flags |= .Carry;
+
+    value.* = result;
+}
+
+rol :: (value: *u8) #expand {
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
+    result := value.* <<< 1;
+
+    basic_flags(*`flags, result);
+    if value.* & BIT_7 == BIT_7   `flags |= .Carry;
+
+    value.* = result;
+}
+
+BIT_7 :: 0b1000_0000;
+BIT_6 :: 0b0100_0000;
+BIT_0 :: 1;
