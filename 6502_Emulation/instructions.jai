@@ -466,9 +466,9 @@ branch_on :: (flag: Status_Flags, on := true) #expand {
     rel_address := `data[1];
     if (`flags & flag != 0) == on {
         if rel_address & BIT_7
-            `pc -= xx (rel_address - 256); // Two's complement
+            `pc -= rel_address - 255 - 1; // Two's complement, we can't just put -256 because it exceeds 8 bytes
         else
-            `pc += xx rel_address;
+            `pc += rel_address;
     }
 }
 
