@@ -140,14 +140,18 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
 }
 
 #scope_module
-// Utility procedures
+// Utility
+BIT_7 :: 0b1000_0000;
+BIT_6 :: 0b0100_0000;
+BIT_0 :: 1;
+
 reset_flags :: inline (flags: *Status_Flags, to_reset: Status_Flags) {
     flags.* &= ~(to_reset);
 }
 
 basic_flags :: inline (flags: *Status_Flags, value: u8) {
-    if value == 0                   flags.* |= .Zero;
-    else if value & BIT_7 == BIT_7  flags.* |= .Negative;
+    if value == 0          flags.* |= .Zero;
+    else if value & BIT_7  flags.* |= .Negative;
 }
 
 little_endian :: inline (address: *u8) -> u16 {
@@ -267,9 +271,9 @@ xor :: (register: *u8) #expand {
 bit_test :: (register: u8) #expand {
     reset_flags(*`flags, .Negative | .Zero | .Overflow);
     result := register & `operand.*;
-    if result == 0                 `flags |= .Zero;
-    if `operand.* > 127            `flags |= .Negative;
-    if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
+    if result == 0         `flags |= .Zero;
+    if `operand.* > 127    `flags |= .Negative;
+    if `operand.* & BIT_6  `flags |= .Overflow;
 }
 
 do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
@@ -282,7 +286,8 @@ do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
     if result < register.*  flags.* |= .Carry;
 
     // Ugh...
-    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) flags.* |= .Overflow;
+    if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) 
+        flags.* |= .Overflow;
 
     register.* = result;
 }
@@ -377,7 +382,7 @@ asl :: (value: *u8) #expand {
     result := value.* << 1;
 
     basic_flags(*`flags, result);
-    if value.* & BIT_7 == BIT_7   `flags |= .Carry;
+    if value.* & BIT_7  `flags |= .Carry;
 
     value.* = result;
 }
@@ -387,7 +392,7 @@ ror :: (value: *u8) #expand {
     result := value.* >>> 1;
     
     basic_flags(*`flags, result);
-    if value.* & BIT_0 == BIT_0   `flags |= .Carry;
+    if value.* & BIT_0  `flags |= .Carry;
 
     value.* = result;
 }
@@ -397,7 +402,7 @@ rol :: (value: *u8) #expand {
     result := value.* <<< 1;
 
     basic_flags(*`flags, result);
-    if value.* & BIT_7 == BIT_7   `flags |= .Carry;
+    if value.* & BIT_7  `flags |= .Carry;
 
     value.* = result;
 }
@@ -456,7 +461,45 @@ nop :: inline (machine: *Machine_6502, data: []u8) {
     // #bytes 0x90;
 }
 
+// --- Branches ---
+branch_on :: (flag: Status_Flags, on := true) #expand {
+    rel_address := `data[1];
+    if (`flags & flag != 0) == on {
+        if rel_address & BIT_7
+            `pc -= xx (rel_address - 256); // Two's complement
+        else
+            `pc += xx rel_address;
+    }
+}
 
-BIT_7 :: 0b1000_0000;
-BIT_6 :: 0b0100_0000;
-BIT_0 :: 1;
+beq :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Zero);
+}
+
+bne :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Zero, false);
+}
+
+bcs :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Carry);
+}
+
+bcc :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Carry, false);
+}
+
+bvs :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Overflow);
+}
+
+bvc :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Overflow, false);
+}
+
+bmi :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Negative);
+}
+
+bpl :: inline (using machine: *Machine_6502, data: []u8) {
+    branch_on(.Negative, false);
+}
