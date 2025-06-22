@@ -23,13 +23,15 @@ Machine_6502 :: struct {
 }
 
 // High true, low false
+// We do not check for high -> low, we just set the pins to true when we handle them.
+// @Incomplete: R_W is not used because we do not have the concept of cycles.
 Pins_6502 :: struct {
-    a: [16]bool; // address bus
-    d: [8]bool; // data bus
+    address: u16;
+    data: u8; 
     v_ss, v_cc, sync: bool;
     phi: [3]bool; // Controls the clock.
     r_w := true; // read on high
-    reset, irq, nmi, so := true; // These are active on low for some reason
+    reset, irq, nmi, so := true; // These are active on low
     ready := true; 
 }
 
@@ -45,17 +47,18 @@ reset :: (using machine: *Machine_6502) {
         log_error("(6502) No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
     }
     state.sp = 0xFF; 
-    
     // We do not push the program-counter, maybe we should.
+    
+    pins = .{};
 }
 
 deinit :: (using machine: *Machine_6502) {
     free(state.memory.data);
     state.memory.count = 0;
-    pins = .{};
 }
 
 cycle :: (using machine: *Machine_6502) {
+    if !pins.ready  return;
     instruction_proc := INSTRUCTION_TABLE[state.memory[state.pc]];
 
     if instruction_proc == null {
@@ -65,8 +68,34 @@ cycle :: (using machine: *Machine_6502) {
 
     instruction_proc(*state);
     state.pc += 1;
+    if so == false  {
+        state.flags |= .Overflow;
+        pins.so = true
+    }
+
+
+    if pins.reset == false {
+        reset(machine);
+        pins.reset = true;
+    }
+
+    if pins.nmi == false {
+        interrupt(*state);
+        pins.nmi = true;
+    }
+    if pins.irq == false && !(state.flags & .Interrupt_Disable) {
+        interrupt(*state);
+    }
 }
 
+interrupt :: (using state: *State_6502, hardware := true) {
+    push_stack(pc);
+    push_stack(xx flags);
+    pc = 0xFFFE; // Interrupt vector
+    
+    flags |= .Interrupt_Disable;
+    if !hardware flags |= .Break;
+}
 #scope_module
 #import "Basic"; // for alloc
 #load "instructions.jai";

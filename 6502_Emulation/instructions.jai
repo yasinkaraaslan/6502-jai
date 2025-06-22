@@ -460,10 +460,8 @@ plp :: inline (using state: *State_6502) {
 
 // --- System ---
 brk :: inline (using state: *State_6502) {
-    push_stack(pc);
-    push_stack(xx flags);
-    pc = 0xFFFE; // IRQ interrupt vector
-    flags |= .Break;
+    pc += 2; // brk acts as a two byte instruction
+    interrupt(state);
 }
 
 rti :: inline (using state: *State_6502) {
