@@ -49,6 +49,7 @@ Instruction_Variant_Flags :: enum_flags {
 }
 
 generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name := "") -> string {
+    num_data : u8;
     operand: string;
     args: string = ---;
     sb: String_Builder;
@@ -69,6 +70,11 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         append(*sb, args);
         
         append(*sb, ");\n");
+
+        if num_data != 0  {
+            append(*sb, tprint("pc += %;\n", num_data));
+        }
+
         append(*sb, "}\n");
     }
 
@@ -94,40 +100,49 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     
     if variants & .Imm {
         operand = "data[1]";
+        num_data = 1;
         generate(.Imm);
     }
     if variants & .Zpg {
         operand = "memory[data[1]]";
+        num_data = 1;
         generate(.Zpg);
     }
     if variants & .Zpg_X {
         operand = "memory[cast(u16)data[1] + cast(u16)x]";
+        num_data = 1;
         generate(.Zpg_X);
     }
     if variants & .Zpg_Y {
         operand = "memory[cast(u16)data[1] + cast(u16)y]";
+        num_data = 1;
         generate(.Zpg_Y);
     }
     if variants & .Abs {
-        operand = "memory[little_endian(*data[1])]";
+        operand = "memory[u16_le(*data[1])]";
+        num_data = 2;
         generate(.Abs);
     }
     if variants & .Abs_X {
-        operand = "memory[little_endian(*data[1]) + x]";
+        operand = "memory[u16_le(*data[1]) + x]";
+        num_data = 2;
         generate(.Abs_X);
     }
     if variants & .Abs_Y {
-        operand = "memory[little_endian(*data[1]) + y]";
+        operand = "memory[u16_le(*data[1]) + y]";
+        num_data = 2;
         generate(.Abs_Y);
     }
 
     if variants & .X_Idx_Ind {
         operand = "memory[x_indexed_indirect()]";
+        num_data = 1;
         generate(.X_Idx_Ind);
     }
 
     if variants & .Ind_Y_Idx {
         operand = "memory[indirect_y_indexed()]";
+        num_data = 1;
         generate(.Ind_Y_Idx);
     }
 
@@ -154,16 +169,16 @@ basic_flags :: inline (flags: *Status_Flags, value: u8) {
     else if value & BIT_7  flags.* |= .Negative;
 }
 
-little_endian :: inline (address: *u8) -> u16 {
+u16_le :: inline (address: *u8) -> u16 {
     return (cast(*u16)address).*;
 }
 
 x_indexed_indirect :: () -> u16 #expand {
     base_address := cast(u16)`data[1] + cast(u16)`x;
-    return little_endian(*`memory[base_address]);
+    return u16_le(*`memory[base_address]);
 }
 indirect_y_indexed :: () -> u16 #expand {
-    return little_endian(*`memory[`data[1]]) + `y;
+    return u16_le(*`memory[`data[1]]) + `y;
 }
 
 push_stack :: (value: u8) #expand {
@@ -409,17 +424,16 @@ rol :: (value: *u8) #expand {
 
 // --- Jumps ---
 jmp_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    pc = little_endian(*data[1]);
+    pc = u16_le(*data[1]);
 }
 
 jmp_ind :: inline (using machine: *Machine_6502, data: []u8) {
-    pc = little_endian(*memory[little_endian(*data[1])]);
+    pc = u16_le(*memory[u16_le(*data[1])]);
 }
 
 jsr_abs :: inline (using machine: *Machine_6502, data: []u8) {
-    return_address := (pc + 2) - 1; // not pc + 2 because we increment the pc after fetching the instruction
-    push_stack(return_address);
-    pc = little_endian(*data[1]);
+    push_stack(pc + 2); // return address
+    pc = u16_le(*data[1]);
 }
 
 rts :: inline (using machine: *Machine_6502, data: []u8) {
