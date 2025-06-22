@@ -161,7 +161,6 @@ x_indexed_indirect :: () -> u16 #expand {
     base_address := cast(u16)`data[1] + cast(u16)`x;
     return little_endian(*`memory[base_address]);
 }
-
 indirect_y_indexed :: () -> u16 #expand {
     return little_endian(*`memory[`data[1]]) + `y;
 }
@@ -247,6 +246,33 @@ bit_test :: (register: u8) #expand {
     if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
 }
 
+push_stack :: (value: u8) #expand {
+    `memory[0x100 & `sp] = value;
+    `sp -= 1;
+}
+
+push_stack :: (value: u16) #expand {
+    `memory[0x100 & `sp]   = cast(u8)(value >> 8);
+    `memory[0x100 & `sp-1] = cast(u8)(value & 0xFF);
+
+    `sp -= 2;
+}
+
+pull_stack :: () -> u8 #expand {
+    `sp +=1;
+    return `memory[0x100 & `sp];;
+}
+
+pull_stack_2 :: () -> u16 #expand {
+    value : u16 = ---;
+
+    value = `memory[0x100 & `sp+1]; // low
+    value &= cast(u16)(`memory[0x100 & `sp+2]) << 8; // high
+    
+    `sp +=2;
+    return value;
+}
+
 do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
     carry := ifx flags.* & .Carry == .Carry then cast(u8)1 else cast(u8)0;
     result := register.* + num + carry;
@@ -287,8 +313,17 @@ clv :: inline (using machine: *Machine_6502, data: []u8) {
 cld :: inline (using machine: *Machine_6502, data: []u8) {
     reset_flags(*flags, .Decimal);
 }
+
 sed :: inline (using machine: *Machine_6502, data: []u8) {
     flags |= .Decimal;
+}
+
+cli :: inline (using machine: *Machine_6502, data: []u8) {
+    reset_flags(*flags, .Interrupt_Disable);
+}
+
+sei :: inline (using machine: *Machine_6502, data: []u8) {
+    flags |= .Interrupt_Disable;
 }
 
 // --- Inc/Dec ---
@@ -367,6 +402,43 @@ rol :: (value: *u8) #expand {
 
     value.* = result;
 }
+
+// Jumps
+jmp_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    pc = little_endian(*data[1]);
+}
+
+jmp_ind :: inline (using machine: *Machine_6502, data: []u8) {
+    pc = little_endian(*memory[little_endian(*data[1])]);
+}
+
+jsr_abs :: inline (using machine: *Machine_6502, data: []u8) {
+    return_address := (pc + 2) - 1; // not pc + 2 because we increment the pc after fetching the instruction
+    push_stack(return_address);
+    pc = little_endian(*data[1]);
+}
+
+rts :: inline (using machine: *Machine_6502, data: []u8) {
+    pc = pull_stack_2();
+}
+
+// Stack operations
+pha :: inline (using machine: *Machine_6502, data: []u8) {
+    push_stack(a);
+}
+
+pla :: inline (using machine: *Machine_6502, data: []u8) {
+    a = pull_stack();
+}
+
+php :: inline (using machine: *Machine_6502, data: []u8) {
+    push_stack(xx flags);
+}
+
+plp :: inline (using machine: *Machine_6502, data: []u8) {
+    flags = xx pull_stack();
+}
+
 
 BIT_7 :: 0b1000_0000;
 BIT_6 :: 0b0100_0000;
