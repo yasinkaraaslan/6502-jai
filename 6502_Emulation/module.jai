@@ -14,7 +14,7 @@ Status_Flags :: enum_flags u8 #specified {
     Zero :: 0x2;
     Interrupt_Disable :: 0x4;
     Decimal :: 0x8; // Most 6502 variants ignore this.
-    B :: 0x10;
+    Break :: 0x10;
     Unused ::  0x20; // Always 1
     Overflow :: 0x40;
     Negative :: 0x80;
@@ -41,10 +41,9 @@ deinit :: (using machine: *Machine_6502) {
 // We hope that the user knows what they are doing and has provided enough bytes for the specified
 // instruction.
 execute_instruction :: (machine: *Machine_6502, data: []u8) {
-    machine.pc += 1;
-
-    // @Incomplete fetch from memory. INSTRUCTION_TABLE[machine.memory[machine.pc]]
+    // @Incomplete: fetch from memory. INSTRUCTION_TABLE[machine.memory[machine.pc]]
     instruction_proc := INSTRUCTION_TABLE[data[0]];
+    machine.pc += 1;
 
     if instruction_proc == null {
         log("Instruction 0x% is not available.", FormatInt.{value=data[0], base=16, minimum_digits=2});

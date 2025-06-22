@@ -140,10 +140,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
 }
 
 #scope_module
-nop :: inline (machine: *Machine_6502, data: []u8) {
-    // You may want to use x86 nop instruction if you want to be fancy.
-}
-
+// Utility procedures
 reset_flags :: inline (flags: *Status_Flags, to_reset: Status_Flags) {
     flags.* &= ~(to_reset);
 }
@@ -165,6 +162,35 @@ indirect_y_indexed :: () -> u16 #expand {
     return little_endian(*`memory[`data[1]]) + `y;
 }
 
+push_stack :: (value: u8) #expand {
+    `memory[0x100 & `sp] = value;
+    `sp -= 1;
+}
+
+push_stack :: (value: u16) #expand {
+    `memory[0x100 & `sp]   = cast(u8)(value >> 8);
+    `memory[0x100 & `sp-1] = cast(u8)(value & 0xFF);
+
+    `sp -= 2;
+}
+
+pull_stack :: () -> u8 #expand {
+    `sp +=1;
+    return `memory[0x100 & `sp];;
+}
+
+// @Consistency 
+pull_stack_2 :: () -> u16 #expand {
+    value : u16 = ---;
+
+    value = `memory[0x100 & `sp+1]; // low
+    value &= cast(u16)(`memory[0x100 & `sp+2]) << 8; // high
+    
+    `sp +=2;
+    return value;
+}
+
+// Actual instruction macros
 load :: (register: *u8) #expand {
     reset_flags(*`flags, .Zero | .Negative);
 
@@ -244,33 +270,6 @@ bit_test :: (register: u8) #expand {
     if result == 0                 `flags |= .Zero;
     if `operand.* > 127            `flags |= .Negative;
     if `operand.* & BIT_6 == BIT_6 `flags |= .Overflow;
-}
-
-push_stack :: (value: u8) #expand {
-    `memory[0x100 & `sp] = value;
-    `sp -= 1;
-}
-
-push_stack :: (value: u16) #expand {
-    `memory[0x100 & `sp]   = cast(u8)(value >> 8);
-    `memory[0x100 & `sp-1] = cast(u8)(value & 0xFF);
-
-    `sp -= 2;
-}
-
-pull_stack :: () -> u8 #expand {
-    `sp +=1;
-    return `memory[0x100 & `sp];;
-}
-
-pull_stack_2 :: () -> u16 #expand {
-    value : u16 = ---;
-
-    value = `memory[0x100 & `sp+1]; // low
-    value &= cast(u16)(`memory[0x100 & `sp+2]) << 8; // high
-    
-    `sp +=2;
-    return value;
 }
 
 do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
@@ -403,7 +402,7 @@ rol :: (value: *u8) #expand {
     value.* = result;
 }
 
-// Jumps
+// --- Jumps ---
 jmp_abs :: inline (using machine: *Machine_6502, data: []u8) {
     pc = little_endian(*data[1]);
 }
@@ -422,7 +421,7 @@ rts :: inline (using machine: *Machine_6502, data: []u8) {
     pc = pull_stack_2();
 }
 
-// Stack operations
+// --- Stack operations ---
 pha :: inline (using machine: *Machine_6502, data: []u8) {
     push_stack(a);
 }
@@ -437,6 +436,24 @@ php :: inline (using machine: *Machine_6502, data: []u8) {
 
 plp :: inline (using machine: *Machine_6502, data: []u8) {
     flags = xx pull_stack();
+}
+
+// --- System ---
+brk :: inline (using machine: *Machine_6502, data: []u8) {
+    push_stack(pc);
+    push_stack(xx flags);
+    pc = 0xFFFE; // IRQ interrupt vector
+    flags |= .Break;
+}
+
+rti :: inline (using machine: *Machine_6502, data: []u8) {
+    flags = xx pull_stack();
+    pc = pull_stack_2();
+}
+
+nop :: inline (machine: *Machine_6502, data: []u8) {
+    // x86 nop
+    // #bytes 0x90;
 }
 
 
