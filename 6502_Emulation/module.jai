@@ -1,6 +1,8 @@
 // This is a very simple 6502 emulation module that executes the given instruction by using a lookup table of procedures.
 // It doesn't count cycles or anything, but you can modify it to do so.
 
+// TODO(yasin): Hardware interruptions.
+
 MEMORY_SIZE_6502 :: 64 * 1024;
 Machine_6502 :: struct {
     memory: []u8;
@@ -23,13 +25,15 @@ Status_Flags :: enum_flags u8 #specified {
 init :: (using machine: *Machine_6502) {
     memory.data = alloc(MEMORY_SIZE_6502);
     memory.count = MEMORY_SIZE_6502;
-    reset(machine);
 }
 
 reset :: (using machine: *Machine_6502) {
-    flags = .Unused; // This is wrong. @Incomplete
+    // flags = .Unused; // This is wrong. @Incomplete
     sp = 0xFD;
-    pc = 0xFFC;
+    pc = u16_le(*memory[0xFFFC]);
+    if pc == 0 {
+        log_error("No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
+    }
 }
 
 deinit :: (using machine: *Machine_6502) {
@@ -37,34 +41,31 @@ deinit :: (using machine: *Machine_6502) {
     memory.count = 0;
 }
 
-// We look for the first byte and decide which instruction we should execute based on the table.
-// We hope that the user knows what they are doing and has provided enough bytes for the specified
-// instruction.
-execute_instruction :: (machine: *Machine_6502, data: []u8) {
-    // @Incomplete: fetch from memory. INSTRUCTION_TABLE[machine.memory[machine.pc]]
-    instruction_proc := INSTRUCTION_TABLE[data[0]];
-    machine.pc += 1;
+cycle :: (using machine: *Machine_6502) {
+    instruction_proc := INSTRUCTION_TABLE[memory[pc]];
+    pc += 1;
 
     if instruction_proc == null {
-        log("Instruction 0x% is not available.", FormatInt.{value=data[0], base=16, minimum_digits=2});
+        log_error("Instruction 0x% is not available.", FormatInt.{value=data[0], base=16, minimum_digits=2});
         return;
     }
 
-    instruction_proc(machine, data);
+    instruction_proc(machine);
 }
 
 #scope_module
 #import "Basic"; // for alloc
 #load "instructions.jai";
 
-// NOTE(yasin): data array is going to be removed after we start using the program counter for fetching instructions.
-Instruction_Proc :: #type (machine: *Machine_6502, data: []u8);
+Instruction_Proc :: #type (machine: *Machine_6502);
+
+// TODO(yasin): Extended instruction table, maybe 65c02 or something else.
 
 // Column specifies the high byte while row specifies the low byte.
 // https://www.masswerk.at/6502/6502_instruction_set.html
 INSTRUCTION_TABLE :: Instruction_Proc.[
 //  0x0,     0x1,           0x2,     0x3,  0x4,       0x5,       0x6,       0x7,  0x8,   0x9,       0xA,     0xB,  0xC,       0xD,       0xE,       0xF
-    brk,     ora_x_idx_ind, null,    null, null,      ora_zpg,   asl_zpg,   null, php,   ora_imm,   asl_acc, null, null,      ora_abs,   asl_abs,  null, // 0x0
+    brk,     ora_x_idx_ind, null,    null, null,      ora_zpg,   asl_zpg,   null, php,   ora_imm,   asl_acc, null, null,      ora_abs,   asl_abs,   null, // 0x0
     bpl,     ora_ind_y_idx, null,    null, null,      ora_zpg_x, asl_zpg_x, null, clc,   ora_abs_y, null,    null, null,      ora_abs_x, asl_abs_x, null, // 0x1
     jsr_abs, and_x_idx_ind, null,    null, bit_zpg,   and_zpg,   rol_zpg,   null, plp,   and_imm,   rol_acc, null, bit_abs,   and_abs,   rol_abs,   null, // 0x2
     bmi,     and_ind_y_idx, null,    null, null,      and_zpg_x, rol_zpg_x, null, sec,   and_abs_y, null,    null, null,      and_abs_x, rol_abs_x, null, // 0x3
