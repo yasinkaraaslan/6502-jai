@@ -196,7 +196,9 @@ pull_stack :: () -> u8 #expand {
     return `memory[0x100 & `sp];;
 }
 
-// @Consistency 
+// @Consistency
+// There is a bug where the compiler cannot inference the type in some cases,
+// so this is named differently.
 pull_stack_2 :: () -> u16 #expand {
     value : u16 = ---;
 

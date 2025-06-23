@@ -11,7 +11,7 @@ Status_Flags :: enum_flags u8 #specified {
     Carry :: 0x1;
     Zero :: 0x2;
     Interrupt_Disable :: 0x4;
-    Decimal :: 0x8; // Most 6502 variants ignore this.
+    Decimal :: 0x8; // Most 6502 variants ignore this, we do too (for now).
     Break :: 0x10;
     Unused ::  0x20; // Always 1
     Overflow :: 0x40;
@@ -59,12 +59,6 @@ interrupt :: (using machine: *Machine_6502, hardware := false) {
     if !hardware flags |= .Break;
 }
 
-get_instruction_address :: (proc: Instruction_Proc) -> u8 {
-    for INSTRUCTION_TABLE {
-        if proc == it  return it_index;
-    }
-}
-
 #scope_module
 #import "Basic"; // for alloc
 #load "instructions.jai";
@@ -94,3 +88,8 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     cpx_imm, sbc_x_idx_ind, null,    null, cpx_zpg,   sbc_zpg,   inc_zpg,   null, inx,   sbc_imm,   nop,     null, cpx_abs,   sbc_abs,   inc_abs,   null, // 0xE
     beq,     sbc_ind_y_idx, null,    null, null,      sbc_zpg_x, inc_zpg_x, null, sed,   sbc_abs_y, null,    null, null,      sbc_abs_x, inc_abs_x, null, // 0xF
 ];
+get_instruction_address :: (proc: Instruction_Proc) -> u8 {
+    for INSTRUCTION_TABLE {
+        if proc == it  return it_index;
+    }
+}
