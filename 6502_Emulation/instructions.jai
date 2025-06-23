@@ -1,4 +1,4 @@
-// We generate everything except for the implied ones.
+// We generate everything except jumps and implied instructions.
 
 // Loads
 #insert #run generate_instructions("lda", .Imm | .Zpg | .Zpg_X | .Abs | .Abs_X | .Abs_Y | .X_Idx_Ind | .Ind_Y_Idx, "load", "a");
@@ -196,7 +196,7 @@ pull_stack :: () -> u8 #expand {
 }
 
 // @Consistency
-// There is a bug where the compiler cannot inference the type in some cases,
+// There is a bug where the compiler cannot inference the type with some overloaded procedures,
 // so this is named differently.
 pull_stack_2 :: () -> u16 #expand {
     value : u16 = ---;
@@ -216,7 +216,7 @@ load :: (register: *u8) #expand {
     // We hardcode the flags for now, in the future we may want to use
     // assembly to cast x86 flags to 6502. I guess that would be faster.
     if `operand.* == 0       `flags |= .Zero;
-    else if `operand.* > 127 `flags |= .Negative;
+    else if `operand.* & BIT_7 `flags |= .Negative;
     register.* = `operand.*;
 }
 
@@ -289,7 +289,7 @@ bit_test :: (register: u8) #expand {
     reset_flags(*`flags, .Negative | .Zero | .Overflow);
     result := register & `operand.*;
     if result == 0         `flags |= .Zero;
-    if `operand.* > 127    `flags |= .Negative;
+    if `operand.* & BIT_7  `flags |= .Negative;
     if `operand.* & BIT_6  `flags |= .Overflow;
 }
 
