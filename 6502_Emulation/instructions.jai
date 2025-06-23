@@ -301,10 +301,8 @@ do_carry_add :: inline (register: *u8, num: u8, carry: u8, flags: *Status_Flags)
 
     if result & BIT_7 != register.* & BIT_7  flags.* |= .Carry;
 
-    // Ugh...
     if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) 
         flags.* |= .Overflow;
-    print("Carry add: %\n", result);
     register.* = result;
 }
 
