@@ -71,8 +71,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         
         append(*sb, ");\n");
 
-        append(*sb, tprint("pc += %;\n", num_data+1));
-
+        append(*sb, tprint("    pc += %;\n", num_data+1));
         append(*sb, "}\n");
     }
 
@@ -294,29 +293,31 @@ bit_test :: (register: u8) #expand {
     if `operand.* & BIT_6  `flags |= .Overflow;
 }
 
-do_carry_add:: (register: *u8, num: u8, flags: *Status_Flags) #expand {
-    carry := ifx flags.* & .Carry == .Carry then cast(u8)1 else cast(u8)0;
+do_carry_add :: inline (register: *u8, num: u8, carry: u8, flags: *Status_Flags) {
     result := register.* + num + carry;
 
     reset_flags(flags, .Negative | .Overflow | .Zero | .Carry);
     basic_flags(flags, result);
 
-    if result < register.*  flags.* |= .Carry;
+    if result & BIT_7 != register.* & BIT_7  flags.* |= .Carry;
 
     // Ugh...
     if (register.* & BIT_7 == num & BIT_7) && (result & BIT_7 != register.* & BIT_7) 
         flags.* |= .Overflow;
-
+    print("Carry add: %\n", result);
     register.* = result;
 }
 
 adc :: (register: *u8) #expand {
-    do_carry_add(register, `operand.*, *`flags);
+    carry : u8 = ifx `flags & .Carry then cast(u8)1 else cast(u8)0;
+    do_carry_add(register, `operand.*, carry, *`flags);
 }
 
 sbc :: (register: *u8) #expand {
-    new_operand := ~`operand.*; // We invert the bits so we can pass it as carry add
-    do_carry_add(register, new_operand, *`flags);
+    carry : u8 = 0;
+    if `flags & .Carry  carry -= 1;
+    new_operand := ~`operand.* + 1; // Two's complement.
+    do_carry_add(register, new_operand, carry, *`flags);
 }
 
 // --- Set/Clear Flags ---
@@ -401,7 +402,7 @@ lsr :: (value: *u8) #expand {
     result := value.* >> 1;
 
     basic_flags(*`flags, result);
-    if value.* & BIT_0 == BIT_0   `flags |= .Carry;
+    if value.* & BIT_0  `flags |= .Carry;
 
     value.* = result;
 }
@@ -497,7 +498,7 @@ branch_on :: (flag: Status_Flags, on := true) #expand {
     rel_address := `memory[`pc+1];
     if (`flags & flag != 0) == on {
         if rel_address & BIT_7
-            `pc -= rel_address - 255 - 1; // Two's complement, we can't just put -256 because it exceeds 8 bytes
+            `pc -= ~rel_address + 1; // Two's complement
         else
             `pc += rel_address;
     }

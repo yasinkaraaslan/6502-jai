@@ -22,6 +22,7 @@ main :: () {
     // brk interrupt
     put_bytes(*machine, 0x8001,  0x00);
 
+    // We should go to 0x8005 after the interrupt.
     // Load 69 to the accumulator
     put_bytes(*machine, 0x8005,  0xA9, 69);
 
