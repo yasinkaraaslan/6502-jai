@@ -1,5 +1,3 @@
-#assert CPU == .X64;
-
 MEMORY_SIZE_6502 :: 64 * 1024;
 
 Machine_6502 :: struct {
@@ -55,11 +53,18 @@ step :: (using machine: *Machine_6502) {
 interrupt :: (using machine: *Machine_6502, hardware := false) {
     push_stack(pc);
     push_stack(xx flags);
-    pc = 0xFFFE; // Interrupt vector
+    pc = u16_le(*memory[0xFFFE]); // Interrupt vector
     
     flags |= .Interrupt_Disable;
     if !hardware flags |= .Break;
 }
+
+get_instruction_address :: (proc: Instruction_Proc) -> u8 {
+    for INSTRUCTION_TABLE {
+        if proc == it  return it_index;
+    }
+}
+
 #scope_module
 #import "Basic"; // for alloc
 #load "instructions.jai";
