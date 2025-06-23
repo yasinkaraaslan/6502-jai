@@ -1,5 +1,8 @@
+#assert CPU == .X64;
+
 MEMORY_SIZE_6502 :: 64 * 1024;
-State_6502 :: struct {
+
+Machine_6502 :: struct {
     memory: []u8;
     a, x, y, sp: u8;
     pc: u16;
@@ -17,78 +20,39 @@ Status_Flags :: enum_flags u8 #specified {
     Negative :: 0x80;
 }
 
-Machine_6502 :: struct {
-    state: State_6502;
-    pins: Pins_6502;
-}
-
-// High true, low false
-// We do not check for high -> low, we just set the pins to true when we handle them.
-// @Incomplete: R_W is not used because we do not have the concept of cycles.
-Pins_6502 :: struct {
-    address: u16;
-    data: u8; 
-    v_ss, v_cc, sync: bool;
-    phi: [3]bool; // Controls the clock.
-    r_w := true; // read on high
-    reset, irq, nmi, so := true; // These are active on low
-    ready := true; 
-}
-
 init :: (using machine: *Machine_6502) {
-    state.memory.data = alloc(MEMORY_SIZE_6502);
-    state.memory.count = MEMORY_SIZE_6502;
+    memory.data = alloc(MEMORY_SIZE_6502);
+    memory.count = MEMORY_SIZE_6502;
 }
 
 reset :: (using machine: *Machine_6502) {
-    state.flags = .Unused | .Interrupt_Disable;
-    state.pc = u16_le(*state.memory[0xFFFC]);
-    if state.pc == 0 {
+    flags = .Unused | .Interrupt_Disable;
+    pc = u16_le(*memory[0xFFFC]);
+    if pc == 0 {
         log_error("(6502) No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
     }
-    state.sp = 0xFF; 
-    // We do not push the program-counter, maybe we should.
-    
-    pins = .{};
+    sp = 0xFF; 
+    // We do not push the program-counter, maybe we should.    
 }
 
 deinit :: (using machine: *Machine_6502) {
-    free(state.memory.data);
-    state.memory.count = 0;
+    free(memory.data);
+    memory.count = 0;
 }
 
 step :: (using machine: *Machine_6502) {
-    if !pins.ready  return;
-    instruction_proc := INSTRUCTION_TABLE[state.memory[state.pc]];
+    instruction_proc := INSTRUCTION_TABLE[memory[pc]];
 
     if instruction_proc == null {
-        log_error("(6502) Instruction 0x% is not available.", FormatInt.{value=state.memory[state.pc], base=16, minimum_digits=2});
+        log_error("(6502) Instruction 0x% is not available.", FormatInt.{value=memory[pc], base=16, minimum_digits=2});
+        pc += 1;
         return;
     }
-
-    instruction_proc(*state);
     
-    if pins.so == false  {
-        state.flags |= .Overflow;
-        pins.so = true;
-    }
-
-
-    if pins.reset == false {
-        reset(machine);
-        pins.reset = true;
-    }
-
-    if pins.nmi == false {
-        interrupt(*state);
-        pins.nmi = true;
-    }
-    if pins.irq == false && !(state.flags & .Interrupt_Disable) {
-        interrupt(*state);
-    }
+    instruction_proc(machine);
 }
 
-interrupt :: (using state: *State_6502, hardware := true) {
+interrupt :: (using machine: *Machine_6502, hardware := false) {
     push_stack(pc);
     push_stack(xx flags);
     pc = 0xFFFE; // Interrupt vector
@@ -100,7 +64,7 @@ interrupt :: (using state: *State_6502, hardware := true) {
 #import "Basic"; // for alloc
 #load "instructions.jai";
 
-Instruction_Proc :: #type (state: *State_6502);
+Instruction_Proc :: #type (machine: *Machine_6502);
 
 // TODO(yasin): Extended instruction table, maybe 65c02 or something else.
 
