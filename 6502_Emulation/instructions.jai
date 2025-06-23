@@ -71,9 +71,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         
         append(*sb, ");\n");
 
-        if num_data != 0  {
-            append(*sb, tprint("pc += %;\n", num_data));
-        }
+        append(*sb, tprint("pc += %;\n", num_data+1));
 
         append(*sb, "}\n");
     }
@@ -238,6 +236,7 @@ transfer :: (from: *u8, to: *u8) #expand {
     num := from.*;
     basic_flags(*`flags, num);
     to.* = num;
+    `pc += 1;
 }
 
 tax :: inline (using state: *State_6502) {
@@ -263,6 +262,7 @@ tsx :: inline (using state: *State_6502) {
 txs :: inline (using state: *State_6502) {
     // Doesn't have an effect on the flags.
     x = sp;
+    pc += 1;
 }
 
 // -- Logical --
@@ -320,30 +320,37 @@ sbc :: (register: *u8) #expand {
 // --- Set/Clear Flags ---
 clc :: inline (using state: *State_6502) {
     reset_flags(*flags, .Carry);
+    pc += 1;
 }
 
 sec :: inline (using state: *State_6502) {
     flags |= .Carry;
+    pc += 1;
 }
 
 clv :: inline (using state: *State_6502) {
     reset_flags(*flags, .Overflow);
+    pc += 1;
 }
 
 cld :: inline (using state: *State_6502) {
     reset_flags(*flags, .Decimal);
+    pc += 1;
 }
 
 sed :: inline (using state: *State_6502) {
     flags |= .Decimal;
+    pc += 1;
 }
 
 cli :: inline (using state: *State_6502) {
     reset_flags(*flags, .Interrupt_Disable);
+    pc += 1;
 }
 
 sei :: inline (using state: *State_6502) {
     flags |= .Interrupt_Disable;
+    pc += 1;
 }
 
 // --- Inc/Dec ---
@@ -357,12 +364,14 @@ inx :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     x += 1;
     basic_flags(*flags, x);
+    pc += 1;
 }
 
 iny :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     y += 1;
     basic_flags(*flags, y);
+    pc += 1;
 }
 
 dec :: () #expand {
@@ -375,11 +384,13 @@ dex :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     x -= 1;
     basic_flags(*flags, x);
+    pc += 1;
 }
 dey :: inline (using state: *State_6502) {
     reset_flags(*flags, .Negative | .Zero);
     y -= 1;
     basic_flags(*flags, y);
+    pc += 1;
 }
 
 // --- Shifts and Rotations ---
@@ -444,18 +455,22 @@ rts :: inline (using state: *State_6502) {
 // --- Stack operations ---
 pha :: inline (using state: *State_6502) {
     push_stack(a);
+    pc += 1;
 }
 
 pla :: inline (using state: *State_6502) {
     a = pull_stack();
+    pc += 1;
 }
 
 php :: inline (using state: *State_6502) {
     push_stack(xx flags);
+    pc += 1;
 }
 
 plp :: inline (using state: *State_6502) {
     flags = xx pull_stack();
+    pc += 1;
 }
 
 // --- System ---
@@ -469,9 +484,10 @@ rti :: inline (using state: *State_6502) {
     pc = pull_stack_2();
 }
 
-nop :: inline (state: *State_6502) {
+nop :: inline (using state: *State_6502) {
     // x86 nop
     // #bytes 0x90;
+    pc += 1;
 }
 
 // --- Branches ---
@@ -483,6 +499,7 @@ branch_on :: (flag: Status_Flags, on := true) #expand {
         else
             `pc += rel_address;
     }
+    else  `pc += 2;
 }
 
 beq :: inline (using state: *State_6502) {

@@ -67,7 +67,7 @@ step :: (using machine: *Machine_6502) {
     }
 
     instruction_proc(*state);
-    state.pc += 1;
+    
     if pins.so == false  {
         state.flags |= .Overflow;
         pins.so = true;
