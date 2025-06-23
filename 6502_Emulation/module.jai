@@ -57,7 +57,7 @@ deinit :: (using machine: *Machine_6502) {
     state.memory.count = 0;
 }
 
-cycle :: (using machine: *Machine_6502) {
+step :: (using machine: *Machine_6502) {
     if !pins.ready  return;
     instruction_proc := INSTRUCTION_TABLE[state.memory[state.pc]];
 
@@ -68,9 +68,9 @@ cycle :: (using machine: *Machine_6502) {
 
     instruction_proc(*state);
     state.pc += 1;
-    if so == false  {
+    if pins.so == false  {
         state.flags |= .Overflow;
-        pins.so = true
+        pins.so = true;
     }
 
 
