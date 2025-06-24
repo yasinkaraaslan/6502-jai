@@ -425,13 +425,13 @@ zpg_indirect :: (offset: u16 = 0) -> u16 #expand {
 }
 
 push_stack :: (value: u8) #expand {
-    `memory[0x100 & `sp] = value;
+    `memory[0x100 + `sp] = value;
     `sp -= 1;
 }
 
 push_stack :: (value: u16) #expand {
-    `memory[0x100 & `sp]   = cast(u8)(value >> 8);
-    `memory[0x100 & (`sp-1)] = cast(u8)(value & 0xFF);
+    `memory[0x100 + `sp]   = cast(u8)(value >> 8);
+    `memory[0x100 + (`sp-1)] = cast(u8)(value & 0xFF);
 
     `sp -= 2;
 }
