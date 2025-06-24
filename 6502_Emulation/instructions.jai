@@ -36,6 +36,33 @@
 #if EXTENDED_65C02 {
     
     
+    
+    Bit_Instruction_Type :: enum {
+        Set;
+        Reset;
+        Branch_Set;
+        Branch_Reset;
+    }
+
+    
+    generate_bit_instructions :: (instruction_initials: string, type: Bit_Instruction_Type, variant: Instruction_Variant_Flags) -> string {
+        sb: String_Builder;
+        
+        // Note: We are assuming that we only pass one variant.
+        variant_name := get_variant_name(variant);
+        operand := get_operand_name(variant);
+        
+        proc_name : string;
+
+        for 0..7 {
+            bit_name :: tprint("BIT_%", it);
+            append(*sb, tprint("%1%2_%3", instruction_initials, it, variant_name));
+            append(*sb, " :: (using machine: *Machine_6502) {\n");
+            // set_bit(*operand, bit_name)
+            append(*sb, "}\n");
+        }
+    }
+
     bra :: (using machine: *Machine_6502) {
         pc = pc + 2 + memory[pc+1];
     }
@@ -58,6 +85,46 @@ Instruction_Variant_Flags :: enum_flags {
     X_Idx_Ind;
     Ind_Y_Idx;
     Acc;
+    Rel;
+    Zpg_Ind;
+    Abs_X_Idx_Ind;
+}
+
+get_variant_name :: (variant: Instruction_Variant_Flags) {
+    variant_name: string;
+    info_enum := cast(*Type_Info_Enum)type_info(Instruction_Variant_Flags);
+    for info_enum.values {
+        if variant == xx it {
+            variant_name = to_lower_copy(info_enum.names[it_index]);
+            break;
+        }
+    }
+    return variant_name;
+}
+
+get_operand_name :: (variant: Instruction_Variant_Flags) -> string {
+    if variant == {
+    case Imm;
+        return "memory[pc+1]";
+    case Zpg;
+        return "memory[memory[pc+1]]";
+    case Zpg_X;
+        return "memory[cast(u16)memory[pc+1] + cast(u16)x]";
+    case Zpg_Y;
+        return "memory[cast(u16)memory[pc+1] + cast(u16)y]";
+    case Abs;
+        return "memory[u16_le(*memory[pc+1])]";
+    case Abs_X;
+        return "memory[u16_le(*memory[pc+1]) + x]";
+    case Abs_Y;
+        return "memory[u16_le(*memory[pc+1]) + y]";
+    case X_Idx_Ind;
+        return "memory[x_indexed_indirect()]";
+    case Ind_Y_Idx;
+        return "memory[indirect_y_indexed()]";
+    case Acc;
+        return "a";
+    }
 }
 
 generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name := "") -> string {
@@ -66,14 +133,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     args: string = ---;
     sb: String_Builder;
     generate :: (variant: Instruction_Variant_Flags) #expand {
-        variant_name: string;
-        info_enum := cast(*Type_Info_Enum)type_info(Instruction_Variant_Flags);
-        for info_enum.values {
-            if variant == xx it {
-                variant_name = to_lower_copy(info_enum.names[it_index]);
-                break;
-            }
-        }
+        variant_name := get_variant_name(variant);
         append(*sb, join(instruction_initials, "_", variant_name));
         append(*sb, " :: (using machine: *Machine_6502) {\n");
         append(*sb, tprint("    operand := *%;\n", operand));
@@ -107,56 +167,57 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         args = join("*", register_name);
     }
     
+    // How can we factor this?
     if variants & .Imm {
-        operand = "memory[pc+1]";
+        operand = get_operand_name(.Imm);
         num_data = 1;
         generate(.Imm);
     }
     if variants & .Zpg {
-        operand = "memory[memory[pc+1]]";
+        operand = get_operand_name(.Zpg);
         num_data = 1;
         generate(.Zpg);
     }
     if variants & .Zpg_X {
-        operand = "memory[cast(u16)memory[pc+1] + cast(u16)x]";
+        operand = get_operand_name(.Zpg_X);
         num_data = 1;
         generate(.Zpg_X);
     }
     if variants & .Zpg_Y {
-        operand = "memory[cast(u16)memory[pc+1] + cast(u16)y]";
+        operand = get_operand_name(.Zpg_Y);
         num_data = 1;
         generate(.Zpg_Y);
     }
     if variants & .Abs {
-        operand = "memory[u16_le(*memory[pc+1])]";
+        operand = get_operand_name(.Abs);
         num_data = 2;
         generate(.Abs);
     }
     if variants & .Abs_X {
-        operand = "memory[u16_le(*memory[pc+1]) + x]";
+        operand = get_operand_name(.Abs_X);
         num_data = 2;
         generate(.Abs_X);
     }
     if variants & .Abs_Y {
-        operand = "memory[u16_le(*memory[pc+1]) + y]";
+        operand = get_operand_name(.Abs_Y);
         num_data = 2;
         generate(.Abs_Y);
     }
 
     if variants & .X_Idx_Ind {
-        operand = "memory[x_indexed_indirect()]";
+        operand = get_operand_name(.X_Idx_Ind);
         num_data = 1;
         generate(.X_Idx_Ind);
     }
 
     if variants & .Ind_Y_Idx {
-        operand = "memory[indirect_y_indexed()]";
+        operand = get_operand_name(.Ind_Y_Idx);
         num_data = 1;
         generate(.Ind_Y_Idx);
     }
 
     if variants & .Acc {
-        operand = "a";
+        operand = get_operand_name(.Acc);
         generate(.Acc);
     }
 
@@ -167,6 +228,11 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
 // Utility
 BIT_7 :: 0b1000_0000;
 BIT_6 :: 0b0100_0000;
+BIT_5 :: 0b0010_0000;
+BIT_4 :: 0b0001_0000;
+BIT_3 :: 0b0000_1000;
+BIT_2 :: 0b0000_0100;
+BIT_1 :: 0b0000_0010;
 BIT_0 :: 1;
 
 reset_flags :: inline (flags: *Status_Flags, to_reset: Status_Flags) {
