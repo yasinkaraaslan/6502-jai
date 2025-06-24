@@ -34,8 +34,19 @@
 #insert #run generate_instructions("ror", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "ror");
 
 #if EXTENDED_65C02 {
-    
-    // Bit instructions
+
+    // Additional variants to existing instructions
+    #insert #run generate_instructions("inc", .Acc, "inc");
+    #insert #run generate_instructions("dec", .Acc, "dec");
+    #insert #run generate_instructions("bit", .Imm | .Zpg_X | .Abs_X, "bit_test", "a");
+
+    // 
+    // New instructions
+    // 
+
+    #insert #run generate_instructions("stz", .Zpg | .Zpg_X | .Abs | .Abs_X, "store", "0");
+
+    // Bit
     #insert #run generate_bit_instructions("smb", .Set, .Zpg);
     #insert #run generate_bit_instructions("rmb", .Reset, .Zpg);
     #insert #run generate_bit_instructions("bbs", .Branch_On_Set, .None); // relative
@@ -100,6 +111,23 @@
     bra :: (using machine: *Machine_6502) {
         pc = pc + 2 + memory[pc+1];
     }
+
+    phx :: (using machine: *Machine_6502) {
+        push_stack(x);
+        pc += 1;
+    }
+    phy :: (using machine: *Machine_6502) {
+        push_stack(y);
+        pc += 1;
+    }
+    plx :: (using machine: *Machine_6502) {
+        x = pull_stack();
+        pc += 1;
+    }
+    ply :: (using machine: *Machine_6502) {
+        y = pull_stack();
+        pc += 1;
+    }
 }
 else {
     bbr0 :: null;
@@ -118,6 +146,7 @@ else {
     bbs5 :: null;
     bbs6 :: null;
     bbs7 :: null;
+    
     rmb0_zpg :: null;
     rmb1_zpg :: null;
     rmb2_zpg :: null;
@@ -134,6 +163,16 @@ else {
     smb5_zpg :: null;
     smb6_zpg :: null;
     smb7_zpg :: null;
+    
+    inc_acc :: null;
+    dec_acc :: null;
+    bit_imm :: null;
+
+    phx :: null;
+    plx :: null;
+    phy :: null;
+    ply :: null;
+
     bra :: null;
 }
 
@@ -199,7 +238,7 @@ get_pc_increment :: (variant: Instruction_Variant_Flags) -> u8 {
     }    
 }
 
-generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name := "") -> string {
+generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, argument_name := "") -> string {
     num_data : u8;
     args: string = ---;
     sb: String_Builder;
@@ -220,7 +259,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         append(*sb, "}\n");
     }
 
-    // We could've used just *register_name for everything and it would've been a lot simpler, but whatever.
+    // We could've used just *argument_name for everything and it would've been a lot simpler, but whatever.
     if proc_name == {
     case "dec"; #through;
     case "inc";
@@ -229,7 +268,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     case "bit_test"; #through;
     case "compare";  #through;
     case "store";
-        args = register_name;
+        args = argument_name;
 
     case "ror"; #through;
     case "rol"; #through;
@@ -237,7 +276,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     case "lsr";
         args = "operand";
     case;
-        args = join("*", register_name);
+        args = join("*", argument_name);
     }
     
     // How can we factor this?
@@ -304,13 +343,13 @@ branch_on_flag :: (flag: Status_Flags, on := true) #expand {
 
 branch_on :: inline (condition: bool, memory: []u8, pc: *u16) {
     rel_address := memory[pc.*+1];
-    pc.* += 2;
     if condition {
         if rel_address & BIT_7
             pc.* -= ~rel_address + 1; // Two's complement
         else
             pc.* += rel_address;
     }
+    pc.* += 2;
 }
 
 u16_le :: inline (address: *u8) -> u16 {
