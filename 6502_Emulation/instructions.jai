@@ -38,8 +38,8 @@
     // Bit instructions
     #insert #run generate_bit_instructions("smb", .Set, .Zpg);
     #insert #run generate_bit_instructions("rmb", .Reset, .Zpg);
-    #insert #run generate_bit_instructions("bbs", .Branch_On_Set, .Rel);
-    #insert #run generate_bit_instructions("brs", .Branch_On_Reset, .Rel);
+    #insert #run generate_bit_instructions("bbs", .Branch_On_Set, .None); // relative
+    #insert #run generate_bit_instructions("bbr", .Branch_On_Reset, .None); // relative
 
     Bit_Instruction_Type :: enum {
         Set;
@@ -70,14 +70,27 @@
         // Note: We are assuming that we only pass one variant.
         variant_name := get_enum_value_name_lower(variant);
         operand := get_operand_name(variant);
-        
+
+
         proc_name := tprint("%_bit", get_enum_value_name_lower(type));
 
         for 0..7 {
             bit_name := tprint("BIT_%", it);
-            append(*sb, tprint("%1%2_%3", instruction_initials, it, variant_name));
+            instruction_proc: string;
+            if variant != .None {
+                instruction_proc = tprint("%1%2_%3", instruction_initials, it, variant_name);
+            }
+            else {
+                instruction_proc = tprint("%1%2", instruction_initials, it);
+            }
+
+            append(*sb, instruction_proc);
             append(*sb, " :: (using machine: *Machine_6502) {\n");
-            append(*sb, tprint("    operand := *%;\n", operand));
+            
+            if variant != .None
+                append(*sb, tprint("    operand := *%;\n", operand));
+            
+            
             append(*sb, tprint("    %(%);\n", proc_name, bit_name));
             append(*sb, "}\n");
         }
@@ -89,14 +102,46 @@
     }
 }
 else {
-
+    bbr0 :: null;
+    bbr1 :: null;
+    bbr2 :: null;
+    bbr3 :: null;
+    bbr4 :: null;
+    bbr5 :: null;
+    bbr6 :: null;
+    bbr7 :: null;
+    bbs0 :: null;
+    bbs1 :: null;
+    bbs2 :: null;
+    bbs3 :: null;
+    bbs4 :: null;
+    bbs5 :: null;
+    bbs6 :: null;
+    bbs7 :: null;
+    rmb0_zpg :: null;
+    rmb1_zpg :: null;
+    rmb2_zpg :: null;
+    rmb3_zpg :: null;
+    rmb4_zpg :: null;
+    rmb5_zpg :: null;
+    rmb6_zpg :: null;
+    rmb7_zpg :: null;
+    smb0_zpg :: null;
+    smb1_zpg :: null;
+    smb2_zpg :: null;
+    smb3_zpg :: null;
+    smb4_zpg :: null;
+    smb5_zpg :: null;
+    smb6_zpg :: null;
+    smb7_zpg :: null;
     bra :: null;
 }
 
 #scope_file
 #import "String";
 Instruction_Variant_Flags :: enum_flags {
-    Imm;
+    None :: 0;
+    Imm :: 1;
     Zpg;
     Zpg_X;
     Zpg_Y;
@@ -106,7 +151,6 @@ Instruction_Variant_Flags :: enum_flags {
     X_Idx_Ind;
     Ind_Y_Idx;
     Acc;
-    Rel;
 }
 
 get_enum_value_name_lower :: (value: $T) -> string {
@@ -121,6 +165,7 @@ get_enum_value_name_lower :: (value: $T) -> string {
 
 get_operand_name :: (variant: Instruction_Variant_Flags) -> string {
     if #complete variant == {
+    case .None; return "";
     case .Imm;
         return "memory[pc+1]";
     case .Zpg;
@@ -141,7 +186,6 @@ get_operand_name :: (variant: Instruction_Variant_Flags) -> string {
         return "memory[indirect_y_indexed()]";
     case .Acc;
         return "a";
-    case .Rel; return "memory[pc + 2 + memory[pc+1]]"; // not used
     }
 }
 
