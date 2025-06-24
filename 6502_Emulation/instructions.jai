@@ -33,6 +33,18 @@
 #insert #run generate_instructions("rol", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "rol");
 #insert #run generate_instructions("ror", .Acc | .Zpg  | .Zpg_X | .Abs | .Abs_X, "ror");
 
+#if EXTENDED_65C02 {
+    
+    
+    bra :: (using machine: *Machine_6502) {
+        pc = pc + 2 + memory[pc+1];
+    }
+}
+else {
+
+    bra :: null;
+}
+
 #scope_file
 #import "String";
 Instruction_Variant_Flags :: enum_flags {
@@ -493,6 +505,7 @@ nop :: inline (using machine: *Machine_6502) {
 
 // --- Branches ---
 branch_on :: (flag: Status_Flags, on := true) #expand {
+    `pc += 2;
     rel_address := `memory[`pc+1];
     if (`flags & flag != 0) == on {
         if rel_address & BIT_7
@@ -500,7 +513,6 @@ branch_on :: (flag: Status_Flags, on := true) #expand {
         else
             `pc += rel_address;
     }
-    else  `pc += 2;
 }
 
 beq :: inline (using machine: *Machine_6502) {

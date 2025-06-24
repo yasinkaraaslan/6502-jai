@@ -1,3 +1,5 @@
+#module_parameters(EXTENDED_65C02 := false);
+
 MEMORY_SIZE_6502 :: 64 * 1024;
 
 Machine_6502 :: struct {
@@ -65,8 +67,6 @@ interrupt :: (using machine: *Machine_6502, hardware := false) {
 
 Instruction_Proc :: #type (machine: *Machine_6502);
 
-// TODO(yasin): Extended instruction table, maybe 65c02 or something else.
-
 // Column specifies the high byte while row specifies the low byte.
 // https://www.masswerk.at/6502/6502_instruction_set.html
 INSTRUCTION_TABLE :: Instruction_Proc.[
@@ -79,7 +79,7 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     bvc,     eor_ind_y_idx, null,    null, null,      eor_zpg_x, lsr_zpg_x, null, cli,   eor_abs_y, null,    null, null,      eor_abs_x, lsr_abs_x, null, // 0x5
     rts,     adc_x_idx_ind, null,    null, null,      adc_zpg,   ror_zpg,   null, pla,   adc_imm,   ror_acc, null, jmp_ind,   adc_abs,   ror_abs,   null, // 0x6
     bvs,     adc_ind_y_idx, null,    null, null,      adc_zpg_x, ror_zpg_x, null, sei,   adc_abs_y, null,    null, null,      adc_abs_x, ror_abs_x, null, // 0x7
-    null,    sta_x_idx_ind, null,    null, sty_zpg,   sta_zpg,   stx_zpg,   null, dey,   null,      txa,     null, sty_abs,   sta_abs,   stx_abs,   null, // 0x8
+    bra,     sta_x_idx_ind, null,    null, sty_zpg,   sta_zpg,   stx_zpg,   null, dey,   null,      txa,     null, sty_abs,   sta_abs,   stx_abs,   null, // 0x8
     bcc,     sta_ind_y_idx, null,    null, sty_zpg_x, sta_zpg_x, stx_zpg_y, null, tya,   sta_abs_y, txs,     null, null,      sta_abs_x, null,      null, // 0x9
     ldy_imm, lda_x_idx_ind, ldx_imm, null, ldy_zpg,   lda_zpg,   ldx_zpg,   null, tay,   lda_imm,   tax,     null, ldy_abs,   lda_abs,   ldx_abs,   null, // 0xA
     bcs,     lda_ind_y_idx, null,    null, ldy_zpg_x, lda_zpg_x, ldx_zpg_y, null, clv,   lda_abs_y, tsx,     null, ldy_abs_x, lda_abs_x, ldx_abs_y, null, // 0xB
