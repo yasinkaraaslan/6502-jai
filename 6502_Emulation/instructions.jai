@@ -438,7 +438,7 @@ push_stack :: (value: u16) #expand {
 
 pull_stack :: () -> u8 #expand {
     `sp +=1;
-    return `memory[0x100 & `sp];
+    return `memory[0x100 + `sp];
 }
 
 // @Consistency
@@ -447,8 +447,8 @@ pull_stack :: () -> u8 #expand {
 pull_stack_2 :: () -> u16 #expand {
     value : u16 = ---;
 
-    value = `memory[0x100 & `sp+1]; // low
-    value &= cast(u16)(`memory[0x100 & `sp+2]) << 8; // high
+    value = `memory[0x100 + `sp+1]; // low
+    value &= cast(u16)(`memory[0x100 + `sp+2]) << 8; // high
     
     `sp +=2;
     return value;
