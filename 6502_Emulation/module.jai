@@ -7,6 +7,10 @@ Machine_6502 :: struct {
     a, x, y, sp: u8;
     pc: u16;
     flags: Status_Flags;
+#if EXTENDED_65C02 {
+    wait_for_interrupt: bool;
+    stop_until_reset: bool;   
+}
 }
 
 Status_Flags :: enum_flags u8 #specified {
@@ -25,22 +29,15 @@ init :: (using machine: *Machine_6502) {
     memory.count = MEMORY_SIZE_6502;
 }
 
-reset :: (using machine: *Machine_6502) {
-    flags = .Unused | .Interrupt_Disable;
-    pc = u16_le(*memory[0xFFFC]);
-    if pc == 0 {
-        log_error("(6502) No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
-    }
-    sp = 0xFF; 
-    // We do not push the program-counter, maybe we should.    
-}
-
 deinit :: (using machine: *Machine_6502) {
     free(memory.data);
     memory.count = 0;
 }
 
 step :: (using machine: *Machine_6502) {
+    #if EXTENDED_65C02 {
+        if wait_for_interrupt || stop_until_reset  return;
+    }
     instruction_proc := INSTRUCTION_TABLE[memory[pc]];
 
     if instruction_proc == null {
@@ -52,7 +49,23 @@ step :: (using machine: *Machine_6502) {
     instruction_proc(machine);
 }
 
+reset :: (using machine: *Machine_6502) {
+    #if EXTENDED_65C02 {
+        stop_until_reset = false;
+    }
+    flags = .Unused | .Interrupt_Disable;
+    pc = u16_le(*memory[0xFFFC]);
+    if pc == 0 {
+        log_error("(6502) No start address at reset vector (0xFFFC, 0xFFFD) has been found.");
+    }
+    sp = 0xFF; 
+    // We do not push the program-counter, maybe we should.    
+}
+
 interrupt :: (using machine: *Machine_6502, hardware := false) {
+    #if EXTENDED_65C02 {
+        if hardware  wait_for_interrupt = false;
+    }
     push_stack(pc);
     push_stack(xx flags);
     pc = u16_le(*memory[0xFFFE]); // Interrupt vector
@@ -83,8 +96,8 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     bcc,     sta_ind_y_idx, sta_zpg_ind, null, sty_zpg_x, sta_zpg_x, stx_zpg_y, smb1_zpg, tya,   sta_abs_y, txs,     null, stz_abs,   sta_abs_x, stz_abs_x, bbs1, // 0x9
     ldy_imm, lda_x_idx_ind, ldx_imm,     null, ldy_zpg,   lda_zpg,   ldx_zpg,   smb2_zpg, tay,   lda_imm,   tax,     null, ldy_abs,   lda_abs,   ldx_abs,   bbs2, // 0xA
     bcs,     lda_ind_y_idx, lda_zpg_ind, null, ldy_zpg_x, lda_zpg_x, ldx_zpg_y, smb3_zpg, clv,   lda_abs_y, tsx,     null, ldy_abs_x, lda_abs_x, ldx_abs_y, bbs3, // 0xB
-    cpy_imm, cmp_x_idx_ind, null,        null, cpy_zpg,   cmp_zpg,   dec_zpg,   smb4_zpg, iny,   cmp_imm,   dex,     null, cpy_abs,   cmp_abs,   dec_abs,   bbs4, // 0xC
-    bne,     cmp_ind_y_idx, cmp_zpg_ind, null, null,      cmp_zpg_x, dec_zpg_x, smb5_zpg, cld,   cmp_abs_y, phx,     null, null,      cmp_abs_x, dec_abs_x, bbs5, // 0xD
+    cpy_imm, cmp_x_idx_ind, null,        null, cpy_zpg,   cmp_zpg,   dec_zpg,   smb4_zpg, iny,   cmp_imm,   dex,     wai,  cpy_abs,   cmp_abs,   dec_abs,   bbs4, // 0xC
+    bne,     cmp_ind_y_idx, cmp_zpg_ind, null, null,      cmp_zpg_x, dec_zpg_x, smb5_zpg, cld,   cmp_abs_y, phx,     stp,  null,      cmp_abs_x, dec_abs_x, bbs5, // 0xD
     cpx_imm, sbc_x_idx_ind, null,        null, cpx_zpg,   sbc_zpg,   inc_zpg,   smb6_zpg, inx,   sbc_imm,   nop,     null, cpx_abs,   sbc_abs,   inc_abs,   bbs6, // 0xE
     beq,     sbc_ind_y_idx, sbc_zpg_ind, null, null,      sbc_zpg_x, inc_zpg_x, smb7_zpg, sed,   sbc_abs_y, plx,     null, null,      sbc_abs_x, inc_abs_x, bbs7, // 0xF
 ];

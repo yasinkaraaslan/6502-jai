@@ -154,6 +154,17 @@
         y = pull_stack();
         pc += 1;
     }
+
+    // These are also supposed to interact with the chip, but we don't emulate the chip.
+    wai :: (using machine: *Machine_6502) {
+        wait_for_interrupt = true;
+        pc += 1;
+    }
+    stp :: (using machine: *Machine_6502) {
+        stop_until_reset = true;
+        pc += 1;
+    }
+
 }
 else {
     bbr0 :: null;
