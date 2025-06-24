@@ -330,23 +330,13 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     }
 
     if proc_name == {
-    case "dec"; #through;
-    case "inc"; #through;
-    case "tsb"; #through;
-    case "trb";
-        args = "";
     case "bit_test"; #through;
     case "compare";  #through;
     case "store";
         args = argument_name;
-
-    case "ror"; #through;
-    case "rol"; #through;
-    case "asl"; #through;
-    case "lsr";
-        args = "operand"; // TODO(yasin): No need to pass any arguments, just use `operand
     case;
-        args = join("*", argument_name);
+        if !argument_name  args = "";
+        else  args = join("*", argument_name);
     }
     
     // How can we factor this?
@@ -430,7 +420,6 @@ u16_le :: inline (address: *u8) -> u16 {
     return (cast(*u16)address).*;
 }
 
-// X
 zpg_indirect :: (offset: u16 = 0) -> u16 #expand {
     return u16_le(*`memory[`memory[`pc+1] + offset]);
 }
@@ -449,7 +438,7 @@ push_stack :: (value: u16) #expand {
 
 pull_stack :: () -> u8 #expand {
     `sp +=1;
-    return `memory[0x100 & `sp];;
+    return `memory[0x100 & `sp];
 }
 
 // @Consistency
@@ -472,7 +461,7 @@ load :: (register: *u8) #expand {
 
     // We hardcode the flags for now, in the future we may want to use
     // assembly to cast x86 flags to 6502. I guess that would be faster.
-    if `operand.* == 0       `flags |= .Zero;
+    if `operand.* == 0         `flags |= .Zero;
     else if `operand.* & BIT_7 `flags |= .Negative;
     register.* = `operand.*;
 }
@@ -652,44 +641,44 @@ dey :: inline (using machine: *Machine_6502) {
 }
 
 // --- Shifts and Rotations ---
-lsr :: (value: *u8) #expand {
+lsr :: () #expand {
     reset_flags(*`flags, .Carry | .Zero | .Negative);
-    result := value.* >> 1;
+    result := `operand.* >> 1;
 
     basic_flags(*`flags, result);
-    if value.* & BIT_0  `flags |= .Carry;
+    if `operand.* & BIT_0  `flags |= .Carry;
 
-    value.* = result;
+    `operand.* = result;
 }
 
-asl :: (value: *u8) #expand {
+asl :: () #expand {
     reset_flags(*`flags, .Carry | .Zero | .Negative);
-    result := value.* << 1;
+    result := `operand.* << 1;
 
     basic_flags(*`flags, result);
-    if value.* & BIT_7  `flags |= .Carry;
+    if `operand.* & BIT_7  `flags |= .Carry;
 
-    value.* = result;
+    `operand.* = result;
 }
 
-ror :: (value: *u8) #expand {
+ror :: () #expand {
     reset_flags(*`flags, .Carry | .Zero | .Negative);
-    result := value.* >>> 1;
+    result := `operand.* >>> 1;
     
     basic_flags(*`flags, result);
-    if value.* & BIT_0  `flags |= .Carry;
+    if `operand.* & BIT_0  `flags |= .Carry;
 
-    value.* = result;
+    `operand.* = result;
 }
 
-rol :: (value: *u8) #expand {
+rol :: () #expand {
     reset_flags(*`flags, .Carry | .Zero | .Negative);
-    result := value.* <<< 1;
+    result := `operand.* <<< 1;
 
     basic_flags(*`flags, result);
-    if value.* & BIT_7  `flags |= .Carry;
+    if `operand.* & BIT_7  `flags |= .Carry;
 
-    value.* = result;
+    `operand.* = result;
 }
 
 // --- Jumps ---
