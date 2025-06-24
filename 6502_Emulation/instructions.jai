@@ -46,6 +46,9 @@
 
     #insert #run generate_instructions("stz", .Zpg | .Zpg_X | .Abs | .Abs_X, "store", "0");
 
+    #insert #run generate_instructions("tsb", .Zpg | .Abs, "tsb");
+    #insert #run generate_instructions("trb", .Zpg | .Abs, "trb");
+
     // Bit
     #insert #run generate_bit_instructions("smb", .Set, .Zpg);
     #insert #run generate_bit_instructions("rmb", .Reset, .Zpg);
@@ -59,6 +62,18 @@
         Branch_On_Reset;
     }
 
+    tsb :: () #expand {
+        reset_flags(*`flags, .Zero);
+        if `a & `operand.* == 0  `flags |= .Zero;
+        `operand.* |= `a;
+    }
+
+    trb :: () #expand {
+        reset_flags(*`flags, .Zero);
+        if `a & `operand.* == 0  `flags |= .Zero;
+        `operand.* &= ~`a;
+    }
+    
     set_bit :: (bit: u8) #expand {
         `operand.* |= bit;
     }
@@ -259,12 +274,12 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         append(*sb, "}\n");
     }
 
-    // We could've used just *argument_name for everything and it would've been a lot simpler, but whatever.
     if proc_name == {
     case "dec"; #through;
-    case "inc";
+    case "inc"; #through;
+    case "tsb"; #through;
+    case "trb";
         args = "";
-
     case "bit_test"; #through;
     case "compare";  #through;
     case "store";
@@ -274,7 +289,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     case "rol"; #through;
     case "asl"; #through;
     case "lsr";
-        args = "operand";
+        args = "operand"; // TODO(yasin): No need to pass any arguments, just use `operand
     case;
         args = join("*", argument_name);
     }

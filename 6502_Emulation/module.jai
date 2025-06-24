@@ -71,8 +71,8 @@ Instruction_Proc :: #type (machine: *Machine_6502);
 // https://www.masswerk.at/6502/6502_instruction_set.html
 INSTRUCTION_TABLE :: Instruction_Proc.[
 //  0x0,     0x1,           0x2,     0x3,  0x4,       0x5,       0x6,       0x7,      0x8,   0x9,       0xA,     0xB,  0xC,       0xD,       0xE,       0xF
-    brk,     ora_x_idx_ind, null,    null, null,      ora_zpg,   asl_zpg,   rmb0_zpg, php,   ora_imm,   asl_acc, null, null,      ora_abs,   asl_abs,   bbr0, // 0x0
-    bpl,     ora_ind_y_idx, null,    null, null,      ora_zpg_x, asl_zpg_x, rmb1_zpg, clc,   ora_abs_y, inc_acc, null, null,      ora_abs_x, asl_abs_x, bbr1, // 0x1
+    brk,     ora_x_idx_ind, null,    null, tsb_zpg,   ora_zpg,   asl_zpg,   rmb0_zpg, php,   ora_imm,   asl_acc, null, tsb_abs,   ora_abs,   asl_abs,   bbr0, // 0x0
+    bpl,     ora_ind_y_idx, null,    null, trb_zpg,   ora_zpg_x, asl_zpg_x, rmb1_zpg, clc,   ora_abs_y, inc_acc, null, trb_abs,   ora_abs_x, asl_abs_x, bbr1, // 0x1
     jsr_abs, and_x_idx_ind, null,    null, bit_zpg,   and_zpg,   rol_zpg,   rmb2_zpg, plp,   and_imm,   rol_acc, null, bit_abs,   and_abs,   rol_abs,   bbr2, // 0x2
     bmi,     and_ind_y_idx, null,    null, bit_zpg_x, and_zpg_x, rol_zpg_x, rmb3_zpg, sec,   and_abs_y, dec_acc, null, bit_abs_x, and_abs_x, rol_abs_x, bbr3, // 0x3
     rti,     eor_x_idx_ind, null,    null, null,      eor_zpg,   lsr_zpg,   rmb4_zpg, pha,   eor_imm,   lsr_acc, null, jmp_abs,   eor_abs,   lsr_abs,   bbr4, // 0x4
