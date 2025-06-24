@@ -36,10 +36,21 @@
 #if EXTENDED_65C02 {
 
     // Additional variants to existing instructions
-    #insert #run generate_instructions("inc", .Acc, "inc");
-    #insert #run generate_instructions("dec", .Acc, "dec");
+    #insert #run generate_instructions("lda", .Zpg_Ind, "load", "a");
+    #insert #run generate_instructions("sta", .Zpg_Ind, "store", "a");
+
+    #insert #run generate_instructions("cmp", .Zpg_Ind, "compare", "a");
+    
+    #insert #run generate_instructions("and", .Zpg_Ind,"and", "a");
+    #insert #run generate_instructions("ora", .Zpg_Ind,"or", "a");
+    #insert #run generate_instructions("eor", .Zpg_Ind,"xor", "a");
     #insert #run generate_instructions("bit", .Imm | .Zpg_X | .Abs_X, "bit_test", "a");
 
+    #insert #run generate_instructions("adc", .Zpg_Ind,"adc", "a");
+    #insert #run generate_instructions("sbc", .Zpg_Ind,"adc", "a");
+
+    #insert #run generate_instructions("inc", .Acc, "inc");
+    #insert #run generate_instructions("dec", .Acc, "dec");
     // 
     // New instructions
     // 
@@ -199,6 +210,7 @@ Instruction_Variant_Flags :: enum_flags {
     Zpg;
     Zpg_X;
     Zpg_Y;
+    Zpg_Ind;
     Abs;
     Abs_X;
     Abs_Y;
@@ -228,6 +240,8 @@ get_operand_name :: (variant: Instruction_Variant_Flags) -> string {
         return "memory[cast(u16)memory[pc+1] + cast(u16)x]";
     case .Zpg_Y;
         return "memory[cast(u16)memory[pc+1] + cast(u16)y]";
+    case .Zpg_Ind;
+        return "memory[zpg_indirect()]";
     case .Abs;
         return "memory[u16_le(*memory[pc+1])]";
     case .Abs_X;
@@ -235,9 +249,9 @@ get_operand_name :: (variant: Instruction_Variant_Flags) -> string {
     case .Abs_Y;
         return "memory[u16_le(*memory[pc+1]) + y]";
     case .X_Idx_Ind;
-        return "memory[x_indexed_indirect()]";
+        return "memory[zpg_indirect(x)]";
     case .Ind_Y_Idx;
-        return "memory[indirect_y_indexed()]";
+        return "memory[zpg_indirect() + y]";
     case .Acc;
         return "a";
     }
@@ -307,6 +321,10 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     if variants & .Zpg_Y {
         generate(.Zpg_Y);
     }
+    if variants & .Zpg_Ind {
+        generate(.Zpg_Ind);
+    }
+
     if variants & .Abs {
         generate(.Abs);
     }
@@ -371,12 +389,9 @@ u16_le :: inline (address: *u8) -> u16 {
     return (cast(*u16)address).*;
 }
 
-x_indexed_indirect :: () -> u16 #expand {
-    base_address := cast(u16)`memory[`pc+1] + cast(u16)`x;
-    return u16_le(*`memory[base_address]);
-}
-indirect_y_indexed :: () -> u16 #expand {
-    return u16_le(*`memory[`memory[`pc+1]]) + `y;
+// X
+zpg_indirect :: (offset: u16 = 0) -> u16 #expand {
+    return u16_le(*`memory[`memory[`pc+1] + offset]);
 }
 
 push_stack :: (value: u8) #expand {
