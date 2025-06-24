@@ -57,11 +57,11 @@
     }
     
     branch_on_set_bit :: (bit: u8) #expand {
-
+        branch_on(`a & bit != 0, `memory, *`pc);
     }
 
     branch_on_reset_bit :: (bit: u8) #expand {
-
+        branch_on(`a & bit == 0, `memory, *`pc);
     }
 
     generate_bit_instructions :: (instruction_initials: string, type: Bit_Instruction_Type, variant: Instruction_Variant_Flags) -> string {
@@ -296,6 +296,21 @@ reset_flags :: inline (flags: *Status_Flags, to_reset: Status_Flags) {
 basic_flags :: inline (flags: *Status_Flags, value: u8) {
     if value == 0          flags.* |= .Zero;
     else if value & BIT_7  flags.* |= .Negative;
+}
+
+branch_on_flag :: (flag: Status_Flags, on := true) #expand {
+    branch_on((`flags & flag != 0) == on, `memory, *`pc);
+}
+
+branch_on :: inline (condition: bool, memory: []u8, pc: *u16) {
+    rel_address := memory[pc.*+1];
+    pc.* += 2;
+    if condition {
+        if rel_address & BIT_7
+            pc.* -= ~rel_address + 1; // Two's complement
+        else
+            pc.* += rel_address;
+    }
 }
 
 u16_le :: inline (address: *u8) -> u16 {
@@ -624,45 +639,34 @@ nop :: inline (using machine: *Machine_6502) {
 }
 
 // --- Branches ---
-branch_on :: (flag: Status_Flags, on := true) #expand {
-    rel_address := `memory[`pc+1];
-    `pc += 2;
-    if (`flags & flag != 0) == on {
-        if rel_address & BIT_7
-            `pc -= ~rel_address + 1; // Two's complement
-        else
-            `pc += rel_address;
-    }
-}
-
 beq :: inline (using machine: *Machine_6502) {
-    branch_on(.Zero);
+    branch_on_flag(.Zero);
 }
 
 bne :: inline (using machine: *Machine_6502) {
-    branch_on(.Zero, false);
+    branch_on_flag(.Zero, false);
 }
 
 bcs :: inline (using machine: *Machine_6502) {
-    branch_on(.Carry);
+    branch_on_flag(.Carry);
 }
 
 bcc :: inline (using machine: *Machine_6502) {
-    branch_on(.Carry, false);
+    branch_on_flag(.Carry, false);
 }
 
 bvs :: inline (using machine: *Machine_6502) {
-    branch_on(.Overflow);
+    branch_on_flag(.Overflow);
 }
 
 bvc :: inline (using machine: *Machine_6502) {
-    branch_on(.Overflow, false);
+    branch_on_flag(.Overflow, false);
 }
 
 bmi :: inline (using machine: *Machine_6502) {
-    branch_on(.Negative);
+    branch_on_flag(.Negative);
 }
 
 bpl :: inline (using machine: *Machine_6502) {
-    branch_on(.Negative, false);
+    branch_on_flag(.Negative, false);
 }
