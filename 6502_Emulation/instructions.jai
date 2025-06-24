@@ -155,6 +155,10 @@
         pc += 1;
     }
 
+    jmp_abs_x_ind :: (using machine: *Machine_6502) {
+        address := memory[u16_le(*memory[pc+1]) + x]; // Is this right?
+        pc = memory[address];
+    }
     // These are also supposed to interact with the chip, but we don't emulate the chip.
     wai :: (using machine: *Machine_6502) {
         wait_for_interrupt = true;
@@ -167,6 +171,22 @@
 
 }
 else {
+    inc_acc :: null;
+    dec_acc :: null;
+    
+    bit_imm :: null;
+    bit_zpg_x :: null;
+    bit_abs_x :: null;
+    
+    cmp_zpg_ind :: null;
+    and_zpg_ind :: null;
+    ora_zpg_ind :: null;
+    eor_zpg_ind :: null;
+    sta_zpg_ind :: null;
+    lda_zpg_ind :: null;
+    adc_zpg_ind :: null;
+    sbc_zpg_ind :: null;    
+
     bbr0 :: null;
     bbr1 :: null;
     bbr2 :: null;
@@ -199,11 +219,12 @@ else {
     smb4_zpg :: null;
     smb5_zpg :: null;
     smb6_zpg :: null;
-    smb7_zpg :: null;
-    
-    inc_acc :: null;
-    dec_acc :: null;
-    bit_imm :: null;
+    smb7_zpg :: null;    
+
+    stz_zpg :: null;
+    stz_zpg_x :: null;
+    stz_abs :: null;
+    stz_abs_x :: null;
 
     phx :: null;
     plx :: null;
@@ -211,6 +232,15 @@ else {
     ply :: null;
 
     bra :: null;
+    wai :: null;
+    stp :: null;
+
+    tsb_zpg :: null;
+    trb_zpg :: null;
+    tsb_abs :: null;
+    trb_abs :: null;
+
+    jmp_abs_x_ind :: null;
 }
 
 #scope_file
