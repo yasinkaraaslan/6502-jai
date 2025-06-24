@@ -35,32 +35,53 @@
 
 #if EXTENDED_65C02 {
     
-    
-    
+    // Bit instructions
+    #insert #run generate_bit_instructions("smb", .Set, .Zpg);
+    #insert #run generate_bit_instructions("rmb", .Reset, .Zpg);
+    #insert #run generate_bit_instructions("bbs", .Branch_On_Set, .Rel);
+    #insert #run generate_bit_instructions("brs", .Branch_On_Reset, .Rel);
+
     Bit_Instruction_Type :: enum {
         Set;
         Reset;
-        Branch_Set;
-        Branch_Reset;
+        Branch_On_Set;
+        Branch_On_Reset;
     }
 
+    set_bit :: (bit: u8) #expand {
+        `operand.* |= bit;
+    }
+
+    reset_bit :: (bit: u8) #expand {
+        `operand.* &= ~bit;
+    }
     
+    branch_on_set_bit :: (bit: u8) #expand {
+
+    }
+
+    branch_on_reset_bit :: (bit: u8) #expand {
+
+    }
+
     generate_bit_instructions :: (instruction_initials: string, type: Bit_Instruction_Type, variant: Instruction_Variant_Flags) -> string {
         sb: String_Builder;
         
         // Note: We are assuming that we only pass one variant.
-        variant_name := get_variant_name(variant);
+        variant_name := get_enum_value_name_lower(variant);
         operand := get_operand_name(variant);
         
-        proc_name : string;
+        proc_name := tprint("%_bit", get_enum_value_name_lower(type));
 
         for 0..7 {
-            bit_name :: tprint("BIT_%", it);
+            bit_name := tprint("BIT_%", it);
             append(*sb, tprint("%1%2_%3", instruction_initials, it, variant_name));
             append(*sb, " :: (using machine: *Machine_6502) {\n");
-            // set_bit(*operand, bit_name)
+            append(*sb, tprint("    operand := *%;\n", operand));
+            append(*sb, tprint("    %(%);\n", proc_name, bit_name));
             append(*sb, "}\n");
         }
+        return builder_to_string(*sb);
     }
 
     bra :: (using machine: *Machine_6502) {
@@ -86,54 +107,62 @@ Instruction_Variant_Flags :: enum_flags {
     Ind_Y_Idx;
     Acc;
     Rel;
-    Zpg_Ind;
-    Abs_X_Idx_Ind;
 }
 
-get_variant_name :: (variant: Instruction_Variant_Flags) {
-    variant_name: string;
-    info_enum := cast(*Type_Info_Enum)type_info(Instruction_Variant_Flags);
+get_enum_value_name_lower :: (value: $T) -> string {
+    info_enum := cast(*Type_Info_Enum)type_info(T);
     for info_enum.values {
-        if variant == xx it {
-            variant_name = to_lower_copy(info_enum.names[it_index]);
-            break;
+        if it == cast(s64) value {
+            return to_lower_copy(info_enum.names[it_index]);
         }
     }
-    return variant_name;
+    return "";
 }
 
 get_operand_name :: (variant: Instruction_Variant_Flags) -> string {
-    if variant == {
-    case Imm;
+    if #complete variant == {
+    case .Imm;
         return "memory[pc+1]";
-    case Zpg;
+    case .Zpg;
         return "memory[memory[pc+1]]";
-    case Zpg_X;
+    case .Zpg_X;
         return "memory[cast(u16)memory[pc+1] + cast(u16)x]";
-    case Zpg_Y;
+    case .Zpg_Y;
         return "memory[cast(u16)memory[pc+1] + cast(u16)y]";
-    case Abs;
+    case .Abs;
         return "memory[u16_le(*memory[pc+1])]";
-    case Abs_X;
+    case .Abs_X;
         return "memory[u16_le(*memory[pc+1]) + x]";
-    case Abs_Y;
+    case .Abs_Y;
         return "memory[u16_le(*memory[pc+1]) + y]";
-    case X_Idx_Ind;
+    case .X_Idx_Ind;
         return "memory[x_indexed_indirect()]";
-    case Ind_Y_Idx;
+    case .Ind_Y_Idx;
         return "memory[indirect_y_indexed()]";
-    case Acc;
+    case .Acc;
         return "a";
+    case .Rel; return "memory[pc + 2 + memory[pc+1]]"; // not used
     }
+}
+
+get_pc_increment :: (variant: Instruction_Variant_Flags) -> u8 {
+    if variant == {
+    case .Abs_X; #through;
+    case .Abs_Y; #through;
+    case .Abs; return 3;
+    case .Acc; return 1;
+    case; return 2;
+    }    
 }
 
 generate_instructions :: (instruction_initials: string, variants: Instruction_Variant_Flags, proc_name: string, register_name := "") -> string {
     num_data : u8;
-    operand: string;
     args: string = ---;
     sb: String_Builder;
     generate :: (variant: Instruction_Variant_Flags) #expand {
-        variant_name := get_variant_name(variant);
+        operand := get_operand_name(variant);
+        pc_increment := get_pc_increment(variant);
+        variant_name := get_enum_value_name_lower(variant);
         append(*sb, join(instruction_initials, "_", variant_name));
         append(*sb, " :: (using machine: *Machine_6502) {\n");
         append(*sb, tprint("    operand := *%;\n", operand));
@@ -143,7 +172,7 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
         
         append(*sb, ");\n");
 
-        append(*sb, tprint("    pc += %;\n", num_data+1));
+        append(*sb, tprint("    pc += %;\n", pc_increment));
         append(*sb, "}\n");
     }
 
@@ -169,55 +198,36 @@ generate_instructions :: (instruction_initials: string, variants: Instruction_Va
     
     // How can we factor this?
     if variants & .Imm {
-        operand = get_operand_name(.Imm);
-        num_data = 1;
         generate(.Imm);
     }
     if variants & .Zpg {
-        operand = get_operand_name(.Zpg);
-        num_data = 1;
         generate(.Zpg);
     }
     if variants & .Zpg_X {
-        operand = get_operand_name(.Zpg_X);
-        num_data = 1;
         generate(.Zpg_X);
     }
     if variants & .Zpg_Y {
-        operand = get_operand_name(.Zpg_Y);
-        num_data = 1;
         generate(.Zpg_Y);
     }
     if variants & .Abs {
-        operand = get_operand_name(.Abs);
-        num_data = 2;
         generate(.Abs);
     }
     if variants & .Abs_X {
-        operand = get_operand_name(.Abs_X);
-        num_data = 2;
         generate(.Abs_X);
     }
     if variants & .Abs_Y {
-        operand = get_operand_name(.Abs_Y);
-        num_data = 2;
         generate(.Abs_Y);
     }
 
     if variants & .X_Idx_Ind {
-        operand = get_operand_name(.X_Idx_Ind);
-        num_data = 1;
         generate(.X_Idx_Ind);
     }
 
     if variants & .Ind_Y_Idx {
-        operand = get_operand_name(.Ind_Y_Idx);
-        num_data = 1;
         generate(.Ind_Y_Idx);
     }
 
     if variants & .Acc {
-        operand = get_operand_name(.Acc);
         generate(.Acc);
     }
 
@@ -571,8 +581,8 @@ nop :: inline (using machine: *Machine_6502) {
 
 // --- Branches ---
 branch_on :: (flag: Status_Flags, on := true) #expand {
-    `pc += 2;
     rel_address := `memory[`pc+1];
+    `pc += 2;
     if (`flags & flag != 0) == on {
         if rel_address & BIT_7
             `pc -= ~rel_address + 1; // Two's complement
