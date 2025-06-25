@@ -25,7 +25,7 @@ Status_Flags :: enum_flags u8 #specified {
 }
 
 init :: (using machine: *Machine_6502) {
-    memory.data = alloc(MEMORY_SIZE_6502);
+    memory.data = alloc(MEMORY_SIZE_6502); // We know that this is aligned, so we don't bother with NewArray
     memory.count = MEMORY_SIZE_6502;
 }
 

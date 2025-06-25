@@ -17,6 +17,7 @@ main :: () {
 
     if !content {
         print("We haven't been able to read any file you provided.");
+        return;
     }
     if content.count < MEMORY_SIZE_6502 {
         print("Size of the file is less than the memory of 6502, copying the file to the upper portion of the memory (to make sure reset and interrupt vectors get set).");
@@ -34,8 +35,16 @@ main :: () {
 
     Simp.set_render_target(window);
     Simp.set_shader_for_color();
+    
     default_font := Simp.load_font("fonts", "LiberationMono-Regular.ttf", 32);
+    
+    BITMAP_WIDTH :: 16;
+    BITMAP_HEIGHT :: 16;
+    bitmap: Simp.Bitmap;
+    defer Simp.deinit(*bitmap);
+    Simp.bitmap_alloc(*bitmap, BITMAP_WIDTH, BITMAP_HEIGHT, .RGBA8);    
 
+    old_bitmap := bitmap;
     quit := false;
     while !quit {
         reset_temporary_storage();
@@ -49,27 +58,39 @@ main :: () {
         for events_this_frame {
             if it.type == .QUIT quit = true;
             if it.type == .KEYBOARD {
-                if it.key_code == #char "S" {
+                if it.key_code == {
+                case #char "S";
                     step(*machine);
+                case #char "R";
+                    reset(*machine);
+                case #char "I";
+                    interrupt(*machine);
                 }
             }
         }
 
         Simp.clear_render_target(0.3, 0.3, 0.6, 1.0);
-        quad_width, quad_height := width / 255, height / 255;
 
-        if width > 255 && height > 255 {
-            for i: 0..255 {
-                for j: 0..255 {
-                    value := machine.memory[i + j * 255];
-                    color := Vector4.{(value >> 8) / 255.0, (value & 0xFF) / 255.0, 0, 1};
-                    // Change the bitmap
+        if width > BITMAP_WIDTH && height > BITMAP_HEIGHT {
+            quad_width, quad_height := width / BITMAP_WIDTH, height / BITMAP_HEIGHT;
+            for i: 0..BITMAP_WIDTH-1 {
+                for j: 0..BITMAP_HEIGHT-1 {
+                    index := i + j * BITMAP_HEIGHT;
+                    value := machine.memory[index];
+                    color := Vector4.{value / 255.0, 1, 0, 1};
+
+                    // Grey scale for now
+                    bitmap.data[index*4] = value; 
+                    bitmap.data[index*4+1] = value; 
+                    bitmap.data[index*4+2] = value; 
+                    bitmap.data[index*4+3] = value; 
+
                 }
             }
         }
 
         // Draw the bitmap
-
+        
 
         Simp.set_shader_for_text();
         Simp.draw_text(default_font, 5, 32, "Press S to step.");
