@@ -13,4 +13,4 @@ loop:
 
     .org $fffc
     .word $8000 ; Reset vector
-    .word $8000 ; Interrupt vector, same for now
+    .word loop  ; Interrupt vector

@@ -1,7 +1,10 @@
 FONT_SIZE :: 32;
+machine: Machine_6502;
+default_font: *Simp.Dynamic_Font;
+window_width := 1280;
+window_height := 720;
 
 main :: () {
-    machine: Machine_6502;
     init(*machine);
     defer deinit(*machine);
     args := get_command_line_arguments();
@@ -33,14 +36,12 @@ main :: () {
     free(content);
 
     reset(*machine);
-    width := 1280;
-    height := 720;
-    window := create_window(1280, 720, "6502 Emulation!");
+    window := create_window(window_width, window_height, "6502 Emulation!");
 
     Simp.set_render_target(window);
     Simp.set_shader_for_color();
 
-    default_font := Simp.load_font("fonts", "FiraSans-Regular.otf", FONT_SIZE);
+    default_font = Simp.load_font("fonts", "FiraSans-Regular.otf", FONT_SIZE);
 
     BITMAP_WIDTH :: 16;
     BITMAP_HEIGHT :: 16;
@@ -56,8 +57,8 @@ main :: () {
         update_window_events();
         for get_window_resizes() {
             Simp.update_window(window);
-            width = it.width;
-            height = it.height;
+            window_width = it.width;
+            window_height = it.height;
         }
 
         for events_this_frame {
@@ -77,8 +78,7 @@ main :: () {
 
         Simp.clear_render_target(0.3, 0.3, 0.6, 1.0);
 
-        if width > BITMAP_WIDTH && height > BITMAP_HEIGHT {
-            quad_width, quad_height := width / BITMAP_WIDTH, height / BITMAP_HEIGHT;
+        if window_width > BITMAP_WIDTH && window_height > BITMAP_HEIGHT {
             for i: 0..BITMAP_WIDTH-1 {
                 for j: 0..BITMAP_HEIGHT-1 {
                     index := i + j * BITMAP_HEIGHT;
@@ -96,23 +96,34 @@ main :: () {
         }
 
         // Draw the bitmap
+        // ---
 
-
-        // Draw the information
-        Simp.set_shader_for_text();
-        Simp.draw_text(default_font, 5, FONT_SIZE * 3, "Press S to step, I to interrupt, R to reset.");
-
-        format_pc :=  FormatInt.{value=machine.pc, base=16, minimum_digits=4};
-        format_a  :=  FormatInt.{value=machine.a,  base=16, minimum_digits=2};
-        format_x  :=  FormatInt.{value=machine.x,  base=16, minimum_digits=2};
-        format_y  :=  FormatInt.{value=machine.y,  base=16, minimum_digits=2};
-        
-        Simp.draw_text(default_font, 5, FONT_SIZE, tprint("Program-counter: 0x%", format_pc));
-        Simp.draw_text(default_font, 500, FONT_SIZE, tprint("Accumulator: 0x%  X: 0x% Y: 0x%", format_a, format_x, format_y));
-
-
+        draw_machine_info();
         Simp.swap_buffers(window, true);
     }
+
+}
+
+draw_machine_info :: () {
+    color     :=  Vector4.{0.80, 0.80, 0.80, 1};
+    format_pc :=  FormatInt.{value=machine.pc, base=16, minimum_digits=4};
+    format_a  :=  FormatInt.{value=machine.a,  base=16, minimum_digits=2};
+    format_x  :=  FormatInt.{value=machine.x,  base=16, minimum_digits=2};
+    format_y  :=  FormatInt.{value=machine.y,  base=16, minimum_digits=2};
+
+    Simp.set_shader_for_text();
+    Simp.draw_text(default_font, 5, FONT_SIZE * 2 + 5, "Press S to step, I to interrupt, R to reset.", color);
+
+    Simp.draw_text(default_font, 5, FONT_SIZE, tprint("Program-counter: 0x%", format_pc), color);
+    
+    a_width := Simp.prepare_text(default_font, tprint("Accumulator: 0x%", format_a));
+    Simp.draw_prepared_text(default_font, window_width / 2 - 50, FONT_SIZE, color);
+
+    y_width := Simp.prepare_text(default_font, tprint("Y: %", format_y));
+    Simp.draw_prepared_text(default_font, window_width - 150, FONT_SIZE, color);
+
+    x_width := Simp.prepare_text(default_font, tprint("X: %", format_x));
+    Simp.draw_prepared_text(default_font, window_width - 250, FONT_SIZE, color);
 
 }
 #import "Math";
