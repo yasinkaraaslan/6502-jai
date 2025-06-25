@@ -445,11 +445,7 @@ pull_stack :: () -> u8 #expand {
 // There is a bug where the compiler cannot inference the type with some overloaded procedures,
 // so this is named differently.
 pull_stack_2 :: () -> u16 #expand {
-    value : u16 = ---;
-
-    value = `memory[0x100 + `sp+1]; // low
-    value &= cast(u16)(`memory[0x100 + `sp+2]) << 8; // high
-    
+    value := (cast,force([]u16)`memory)[0x100 + `sp+1];
     `sp +=2;
     return value;
 }
