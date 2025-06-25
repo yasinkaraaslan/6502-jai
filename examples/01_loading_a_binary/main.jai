@@ -8,32 +8,27 @@ main :: () {
     init(*machine);
     defer deinit(*machine);
     args := get_command_line_arguments();
-    if args.count < 2 {
-        print("Please provide a binary file representing a 6502 memory layout to emulate.");
-        return;
-    }
-    content: string;
-    for args {
-        if it_index == 0  continue;
-        read, ok := read_entire_file(it);
-        if !ok  continue;
-        content = read;
-    }
+    loaded := false;
 
-    if !content {
-        print("We haven't been able to read any file you provided.");
-        return;
-    }
-    if content.count < MEMORY_SIZE_6502 {
-        print("Size of the file is less than the memory of 6502, copying the file to the upper portion of the memory (to make sure reset and interrupt vectors get set).");
-        memcpy(machine.memory.data + (MEMORY_SIZE_6502 - content.count), content.data, content.count);
+    if args.count < 2 {
+        loaded = load_file("draw.bin");
     }
     else {
-        if content.count > MEMORY_SIZE_6502  print("Size of the file is more than the memory of 6502, copying the file's lower portion to the memory.");
-        memcpy(machine.memory.data, content.data, MEMORY_SIZE_6502);
+        for args {
+            if it_index == 0  continue;
+            ok := load_file(it);
+            if ok  {
+                loaded = true;
+                break;
+            } 
+        }
+    }
+    
+    if !loaded {
+        print("We haven't been able to read any file provided.");
+        return;
     }
 
-    free(content);
 
     reset(*machine);
     window := create_window(window_width, window_height, "6502 Emulation!");
@@ -47,6 +42,7 @@ main :: () {
     BITMAP_HEIGHT :: 16;
 
     bitmap: Simp.Bitmap;
+    texture: Simp.Texture;
     defer Simp.deinit(*bitmap);
     Simp.bitmap_alloc(*bitmap, BITMAP_WIDTH, BITMAP_HEIGHT, .RGBA8);
 
@@ -93,15 +89,34 @@ main :: () {
 
                 }
             }
+            Simp.texture_load_from_bitmap(*texture, *bitmap);
         }
+
 
         // Draw the bitmap
         // ---
-
+        Simp.set_shader_for_images(*texture);
         draw_machine_info();
         Simp.swap_buffers(window, true);
     }
 
+}
+
+load_file :: (file_name: string) -> bool {
+    content, ok := read_entire_file(file_name); 
+    defer free(content);
+
+    if !ok || !content  return false;
+
+    if content.count < MEMORY_SIZE_6502 {
+        print("Size of the file is less than the memory of 6502, copying the file to the upper portion of the memory (to make sure reset and interrupt vectors get set).");
+        memcpy(machine.memory.data + (MEMORY_SIZE_6502 - content.count), content.data, content.count);
+    }
+    else {
+        if content.count > MEMORY_SIZE_6502  print("Size of the file is more than the memory of 6502, copying the file's lower portion to the memory.");
+        memcpy(machine.memory.data, content.data, MEMORY_SIZE_6502);
+    }
+    return true;
 }
 
 draw_machine_info :: () {
