@@ -638,42 +638,44 @@ dey :: inline (using machine: *Machine_6502) {
 
 // --- Shifts and Rotations ---
 lsr :: () #expand {
-    reset_flags(*`flags, .Carry | .Zero | .Negative);
     result := `operand.* >> 1;
 
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
     basic_flags(*`flags, result);
-    if `operand.* & BIT_0  `flags |= .Carry;
 
+    if `operand.* & BIT_0  `flags |= .Carry;
     `operand.* = result;
 }
 
 asl :: () #expand {
-    reset_flags(*`flags, .Carry | .Zero | .Negative);
     result := `operand.* << 1;
 
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
     basic_flags(*`flags, result);
-    if `operand.* & BIT_7  `flags |= .Carry;
 
+    if `operand.* & BIT_7  `flags |= .Carry;
     `operand.* = result;
 }
 
 ror :: () #expand {
-    reset_flags(*`flags, .Carry | .Zero | .Negative);
-    result := `operand.* >>> 1;
+    result := `operand.* >> 1;
+    if `flags & .Carry  result |= BIT_7;
     
+    reset_flags(*`flags, .Carry | .Zero | .Negative);
     basic_flags(*`flags, result);
-    if `operand.* & BIT_0  `flags |= .Carry;
 
+    if `operand.* & BIT_0  `flags |= .Carry;
     `operand.* = result;
 }
 
 rol :: () #expand {
+    result := `operand.* << 1;
+    if `flags & .Carry  result |= BIT_0;
+
     reset_flags(*`flags, .Carry | .Zero | .Negative);
-    result := `operand.* <<< 1;
-
     basic_flags(*`flags, result);
-    if `operand.* & BIT_7  `flags |= .Carry;
 
+    if `operand.* & BIT_7  `flags |= .Carry;
     `operand.* = result;
 }
 
