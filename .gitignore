@@ -4,3 +4,7 @@
 *.pdb
 *.exe
 *.rdi
+*.bin
+
+# Jai generated code
+.added_strings_* 
