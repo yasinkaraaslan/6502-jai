@@ -1,7 +1,7 @@
-FONT_SIZE :: 32;
 machine: Machine_6502;
-default_font: *Simp.Dynamic_Font;
 
+FONT_SIZE :: 32;
+default_font: *Simp.Dynamic_Font;
 
 BITMAP_WIDTH :: 16;
 BITMAP_HEIGHT :: 16;
@@ -83,7 +83,7 @@ main :: () {
         Simp.clear_render_target(0.3, 0.3, 0.6, 1.0);
 
         Simp.set_shader_for_images(*texture);
-        Simp.immediate_quad(50,50,xx (window_width - 50),xx (window_height - 50), .{0.5,0.5,0.5,1});
+        Simp.immediate_quad(50,50,xx (window_width - 50),xx (window_height - 50), .{1,1,1,1});
 
         draw_machine_info();
         Simp.swap_buffers(window, true);
