@@ -1,16 +1,17 @@
 ; You can use vasm to compile this
 ; vasm6502_oldstyle draw.s -Fbin -dotdir -o draw.bin
-
     .org $8000
-    lda #$ff
-    sta $01
+reset:
+    ldx #$0 ; we use x to denote the memory
+interrupt:
+    ldy #$30 ; we use y to denote color value
 loop:
-    lda #$55
-    sta $0f
+    sty $0, x ; store the color value to the memory
+    inx
 
-    lda #$aa
+    iny
     jmp loop
 
     .org $fffc
-    .word $8000 ; Reset vector
-    .word loop  ; Interrupt vector
+    .word reset
+    .word interrupt

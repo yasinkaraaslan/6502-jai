@@ -75,7 +75,7 @@ interrupt :: (using machine: *Machine_6502, hardware := false) {
 }
 
 #scope_module
-#import "Basic"; // for alloc
+#import "Basic";
 #load "instructions.jai";
 
 Instruction_Proc :: #type (machine: *Machine_6502);
@@ -100,6 +100,7 @@ INSTRUCTION_TABLE :: Instruction_Proc.[
     cpx_imm, sbc_x_idx_ind, null,        null, cpx_zpg,   sbc_zpg,   inc_zpg,   smb6_zpg, inx, sbc_imm,   nop,     null, cpx_abs,       sbc_abs,   inc_abs,   bbs6, // 0xE
     beq,     sbc_ind_y_idx, sbc_zpg_ind, null, null,      sbc_zpg_x, inc_zpg_x, smb7_zpg, sed, sbc_abs_y, plx,     null, null,          sbc_abs_x, inc_abs_x, bbs7, // 0xF
 ];
+
 get_instruction_opcode :: (proc: Instruction_Proc) -> u8 {
     for INSTRUCTION_TABLE {
         if proc == it  return it_index;
